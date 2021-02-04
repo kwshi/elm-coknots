@@ -1,0 +1,27 @@
+{
+  "name": "elm-coknots",
+  "version": "1.0.0",
+  "description": "Draw some cool knots",
+  "devDependencies": {
+    "elm": "^0.19.1-5"
+  },
+  "scripts": {
+    "build": "elm make --output=dist/index.html src/Main.elm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kwshi/elm-coknots.git"
+  },
+  "keywords": [
+    "elm",
+    "knot",
+    "gauss",
+    "colinear"
+  ],
+  "author": "al. et. Kye Shi",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kwshi/elm-coknots/issues"
+  },
+  "homepage": "https://github.com/kwshi/elm-coknots#readme"
+}
