@@ -4,6 +4,7 @@ import Dict
 import GaussCode as Gc
 import GaussCode.Common as Gcc
 
+
 type alias Terminal =
     { n : Int
     , e : Int
@@ -12,7 +13,16 @@ type alias Terminal =
     }
 
 
-zipNeighbors : List a -> List ( a, a, a )
+type alias Neighbors a =
+    { prev : a
+    , prevSeg : Int
+    , curr : a
+    , nextSeg : Int
+    , next : a
+    }
+
+
+zipNeighbors : List a -> List (Neighbors a)
 zipNeighbors l =
     case l of
         [] ->
@@ -23,15 +33,16 @@ zipNeighbors l =
 
         a :: b :: rest ->
             let
-                go acc x y rem =
+                go acc i x y rem =
                     case rem of
                         [] ->
-                            ( y, a, b ) :: List.reverse (( x, y, a ) :: acc)
+                            Neighbors y 0 a 1 b
+                                :: List.reverse (Neighbors x i y 0 a :: acc)
 
                         z :: newRem ->
-                            go (( x, y, z ) :: acc) y z newRem
+                            go (Neighbors x i y (i + 1) z :: acc) (i + 1) y z newRem
             in
-            go [] a b rest
+            go [] 1 a b rest
 
 
 liftMaybe : List (Maybe a) -> Maybe (List a)
@@ -64,6 +75,7 @@ getTerminal v =
 getTerminals : Gc.GaussCode -> Maybe (List Terminal)
 getTerminals waypoints =
     zipNeighbors waypoints
+        |> Debug.log "zipneighbors"
         |> List.foldl markTerminal (Just Dict.empty)
         |> Maybe.andThen
             (\terminals ->
@@ -83,35 +95,42 @@ type Visited
 
 
 markTerminal :
-    ( Gc.Crossing, Gc.Crossing, Gc.Crossing )
+    Neighbors Gc.Crossing
     -> Maybe (Dict.Dict Int Visited)
     -> Maybe (Dict.Dict Int Visited)
-markTerminal ( prev, curr, next ) =
+markTerminal { prev, prevSeg, curr, nextSeg, next } =
     Maybe.andThen
         (\terminals ->
             case Dict.get curr.label terminals of
                 -- first visit, left to right
                 Nothing ->
                     Dict.insert curr.label
-                        (Once ( prev.label, next.label ))
+                        (Once ( prevSeg, nextSeg ))
                         terminals
                         |> Just
 
                 Just (Once ( w, e )) ->
+                    let
+                        up =
+                            { n = nextSeg, e = e, s = prevSeg, w = w }
+
+                        down =
+                            { n = prevSeg, e = e, s = nextSeg, w = w }
+                    in
                     -- second visit, vertical
                     Dict.insert curr.label
-                        (case (curr.sign, curr.order) of
-                            (Gcc.Plus, Gcc.Under) ->
-                                Twice { n = next.label, e = e, s = prev.label, w = w }
+                        (case ( curr.sign, curr.order ) of
+                            ( Gcc.Plus, Gcc.Under ) ->
+                                Twice up
 
-                            (Gcc.Minus, Gcc.Under) ->
-                                Twice { n = prev.label, e = e, s = next.label, w = w }
+                            ( Gcc.Minus, Gcc.Under ) ->
+                                Twice down
 
-                            (Gcc.Minus, Gcc.Over) ->
-                                Twice { n = next.label, e = e, s = prev.label, w = w }
+                            ( Gcc.Minus, Gcc.Over ) ->
+                                Twice up
 
-                            (Gcc.Plus, Gcc.Over) ->
-                                Twice { n = prev.label, e = e, s = next.label, w = w }
+                            ( Gcc.Plus, Gcc.Over ) ->
+                                Twice down
                         )
                         terminals
                         |> Just
@@ -119,5 +138,3 @@ markTerminal ( prev, curr, next ) =
                 Just (Twice _) ->
                     Nothing
         )
-
-
