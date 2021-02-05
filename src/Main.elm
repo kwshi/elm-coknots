@@ -9,11 +9,11 @@ import Html.Styled.Attributes as At
 import Html.Styled.Events as Ev
 import Parser.Advanced as Parser
 import Url
+import Calc
 
 
 type alias Model =
     { input : String
-    , crossing : Maybe Gc.GaussCode
     }
 
 
@@ -36,8 +36,7 @@ main =
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init () url nav =
-    ( { input = ""
-      , crossing = Nothing
+    ( { input = "1u+ 2o+ 3u+ 1o+ 2u+ 3o+"
       }
     , Cmd.none
     )
@@ -52,9 +51,21 @@ view model =
 
 viewBody : Model -> List (Ht.Html Msg)
 viewBody model =
-  let _ = Debug.log "crossing" model in
+  let 
+      gc = 
+        Parser.run Gc.parser model.input
+
+      terms = 
+        gc 
+        |> Result.toMaybe 
+        |> Maybe.andThen Calc.getTerminals
+  in
     [ Ht.input [ At.value model.input, Ev.onInput Input ] []
-    , Ht.div [] [ Ht.text model.input ]
+    , Ht.code [] [ Ht.text <| Debug.toString model ]
+    , Ht.br [] []
+    , Ht.code [] [ Ht.text <| Debug.toString  gc ]
+    , Ht.br [] []
+    , Ht.code [] [ Ht.text <| Debug.toString terms ]
     ]
 
 
@@ -65,14 +76,7 @@ update msg model =
             ( model, Cmd.none )
 
         Input s ->
-            ( { model
-                | input = s
-                , crossing = Parser.run Gcp.gaussCode s
-                |> Debug.log "result"
-                |> Result.toMaybe
-              }
-            , Cmd.none
-            )
+            ( { model | input = s } , Cmd.none)
 
 
 subscriptions : Model -> Sub Msg

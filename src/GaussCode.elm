@@ -1,10 +1,12 @@
 module GaussCode exposing
     ( Crossing
     , GaussCode
-    , parser
-    , toString
+    , Order
+    , Sign
     , crossingParser
     , crossingToString
+    , parser
+    , toString
     )
 
 import GaussCode.Common as Common
@@ -19,14 +21,29 @@ type alias Crossing =
     Common.Crossing
 
 
+type alias Sign =
+    Common.Sign
+
+
+type alias Order =
+    Common.Order
+
+
 parser : Parser.Parser c GaussCode
-parser = Parser.gaussCode
+parser =
+    Parser.gaussCode
+
 
 toString : GaussCode -> String
-toString = Common.gaussCodeToString
+toString =
+    Common.gaussCodeToString
+
 
 crossingParser : Parser.Parser c Crossing
-crossingParser = Parser.crossing
+crossingParser =
+    Parser.crossing
+
 
 crossingToString : Crossing -> String
-crossingToString = Common.crossingToString
+crossingToString =
+    Common.crossingToString
