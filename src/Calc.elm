@@ -5,11 +5,14 @@ import GaussCode as Gc
 import GaussCode.Common as Gcc
 
 
+type Axis = H | V
+
 type alias Terminal =
     { n : Int
     , e : Int
     , s : Int
     , w : Int
+    , dominant : Axis
     }
 
 
@@ -65,7 +68,7 @@ liftMaybe =
 getTerminal : Visited -> Maybe Terminal
 getTerminal v =
     case v of
-        Once _ ->
+        Once _ _ _ ->
             Nothing
 
         Twice t ->
@@ -90,7 +93,7 @@ getTerminals waypoints =
 
 
 type Visited
-    = Once ( Int, Int )
+    = Once ( Int, Int ) Gcc.Order Gcc.Sign
     | Twice Terminal
 
 
@@ -105,19 +108,24 @@ markTerminal { prev, prevSeg, curr, nextSeg, next } =
                 -- first visit, left to right
                 Nothing ->
                     Dict.insert curr.label
-                        (Once ( prevSeg, nextSeg ))
+                        (Once ( prevSeg, nextSeg ) curr.order curr.sign)
                         terminals
                         |> Just
 
-                Just (Once ( w, e )) ->
+                Just (Once ( w, e ) order sign) ->
                     let
-                        up =
-                            { n = nextSeg, e = e, s = prevSeg, w = w }
+                        dominant = 
+                          case curr.order of
+                            Gcc.Over -> V
+                            Gcc.Under -> H
 
-                        down =
-                            { n = prevSeg, e = e, s = nextSeg, w = w }
+                        make n s = {n = n, e = e, s = s, w = w, dominant = dominant}
+                        up = make nextSeg prevSeg
+                        down = make prevSeg nextSeg
                     in
                     -- second visit, vertical
+                    if curr.sign /= sign then Nothing else
+                    if curr.order == order then Nothing else
                     Dict.insert curr.label
                         (case ( curr.sign, curr.order ) of
                             ( Gcc.Plus, Gcc.Under ) ->
