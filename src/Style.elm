@@ -23,7 +23,7 @@ root =
     , backgroundColor Cl.gray100
     , color Cl.gray900
     , Tx.textSM
-    , fontFamilies [ "Open Sans", "sans-serif" ]
+    , fontFamilies [ "Inter", "sans-serif" ]
     ]
         |> batch
 
@@ -88,6 +88,8 @@ example =
     , margin Sp.space0
     , transitionBg
     , padding2 Sp.space1 Sp.space2
+    , fontFamily inherit
+    , fontSize inherit
     , hover
         [ backgroundColor Cl.blue100
         ]
