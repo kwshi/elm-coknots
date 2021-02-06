@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev:cp": "cpx --watch 'src/static/**/*.{html,js}' 'dist'",
-    "dev:elm": "elm-live -Hd 'dist' -- --debug --output=dist/elm.js src/Main.elm",
+    "dev:elm": "elm-live -d 'dist' -- --debug --output=dist/elm.js src/Main.elm",
     "dev": "run-p dev:cp dev:elm",
     "build:cp": "cpx 'src/static/**/*.{html,js}' 'dist'",
     "build:elm": "elm make --output=dist/elm.js src/Main.elm",

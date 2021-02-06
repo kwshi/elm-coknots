@@ -4,7 +4,15 @@ import Dict
 import Gc
 
 
-type Axis = H | V
+type Axis
+    = H
+    | V
+
+
+type Vert
+    = Up
+    | Down
+
 
 type alias Terminal =
     { n : Int
@@ -12,6 +20,7 @@ type alias Terminal =
     , s : Int
     , w : Int
     , dominant : Axis
+    , vert : Vert
     }
 
 
@@ -74,17 +83,27 @@ getTerminal v =
             Just t
 
 
+type alias State =
+    { terminals : Dict.Dict Int Visited
+    , spine : List Int
+    }
+
+
 getTerminals : Gc.Gc -> Maybe (List Terminal)
 getTerminals waypoints =
     zipNeighbors waypoints
-        |> Debug.log "zipneighbors"
-        |> List.foldl markTerminal (Just Dict.empty)
+        |> List.foldl markTerminal
+            (Just
+                { terminals = Dict.empty
+                , spine = []
+                }
+            )
         |> Maybe.andThen
-            (\terminals ->
-                waypoints
+            (\{ spine, terminals } ->
+                spine
                     |> List.map
-                        (\wp ->
-                            Dict.get wp.label terminals
+                        (\crossing ->
+                            Dict.get crossing terminals
                                 |> Maybe.andThen getTerminal
                         )
                     |> liftMaybe
@@ -98,49 +117,68 @@ type Visited
 
 markTerminal :
     Neighbors Gc.Waypoint
-    -> Maybe (Dict.Dict Int Visited)
-    -> Maybe (Dict.Dict Int Visited)
+    -> Maybe State
+    -> Maybe State
 markTerminal { prev, prevSeg, curr, nextSeg, next } =
     Maybe.andThen
-        (\terminals ->
+        (\{ terminals, spine } ->
             case Dict.get curr.label terminals of
                 -- first visit, left to right
                 Nothing ->
-                    Dict.insert curr.label
-                        (Once ( prevSeg, nextSeg ) curr.order curr.sign)
-                        terminals
+                    { terminals =
+                        Dict.insert curr.label
+                            (Once ( prevSeg, nextSeg ) curr.order curr.sign)
+                            terminals
+                    , spine = curr.label :: spine
+                    }
                         |> Just
 
                 Just (Once ( w, e ) order sign) ->
                     let
-                        dominant = 
-                          case curr.order of
-                            Gc.Over -> V
-                            Gc.Under -> H
+                        dominant =
+                            case curr.order of
+                                Gc.Over ->
+                                    V
 
-                        make n s = {n = n, e = e, s = s, w = w, dominant = dominant}
-                        up = make nextSeg prevSeg
-                        down = make prevSeg nextSeg
+                                Gc.Under ->
+                                    H
+
+                        make n s v =
+                            { n = n, e = e, s = s, w = w, dominant = dominant, vert = v }
+
+                        up =
+                            make nextSeg prevSeg Up
+
+                        down =
+                            make prevSeg nextSeg Down
                     in
                     -- second visit, vertical
-                    if curr.sign /= sign then Nothing else
-                    if curr.order == order then Nothing else
-                    Dict.insert curr.label
-                        (case ( curr.sign, curr.order ) of
-                            ( Gc.Plus, Gc.Under ) ->
-                                Twice up
+                    if curr.sign /= sign then
+                        Nothing
 
-                            ( Gc.Minus, Gc.Under ) ->
-                                Twice down
+                    else if curr.order == order then
+                        Nothing
 
-                            ( Gc.Minus, Gc.Over ) ->
-                                Twice up
+                    else
+                        { terminals =
+                            Dict.insert curr.label
+                                (case ( curr.sign, curr.order ) of
+                                    ( Gc.Plus, Gc.Under ) ->
+                                        Twice up
 
-                            ( Gc.Plus, Gc.Over ) ->
-                                Twice down
-                        )
-                        terminals
-                        |> Just
+                                    ( Gc.Minus, Gc.Under ) ->
+                                        Twice down
+
+                                    ( Gc.Minus, Gc.Over ) ->
+                                        Twice up
+
+                                    ( Gc.Plus, Gc.Over ) ->
+                                        Twice down
+                                )
+                                terminals
+                        , spine = spine
+                        }
+                            |> Just
 
                 Just (Twice _) ->
                     Nothing

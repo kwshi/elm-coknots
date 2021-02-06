@@ -1,18 +1,24 @@
 module Gc exposing
-    ( Waypoint
-    , Gc
+    ( Gc
     , Order(..)
     , Sign(..)
-    , waypointToString
+    , Waypoint
     , toString
+    , waypointToString
     )
+
 
 type alias Gc =
     List Waypoint
 
 
 type alias Waypoint =
-    { label : Int, order : Order, sign : Sign }
+    { label : Int
+    , order : Order
+    , sign : Sign
+    , index : Int
+    , pos : Int
+    }
 
 
 type Sign

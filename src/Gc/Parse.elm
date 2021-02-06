@@ -12,16 +12,20 @@ type BadWaypoint
     | ExpectingEnd
 
 
-type alias Bad =
-    List
-        { pos : Int
-        , index : Int
-        , char : Int
-        , err : BadWaypoint
-        }
+type alias Error =
+    { pos : Int
+    , index : Int
+    , char : Int
+    , err : BadWaypoint
+    }
 
 
-waypoint : List Char -> Result { char : Int, err : BadWaypoint } Gc.Waypoint
+waypoint :
+    List Char
+    ->
+        Result
+            { char : Int, err : BadWaypoint }
+            { label : Int, order : Gc.Order, sign : Gc.Sign }
 waypoint =
     let
         label i acc cs =
@@ -38,7 +42,7 @@ waypoint =
                             |> String.fromList
                             |> String.toInt
                             |> Result.fromMaybe { char = 0, err = ExpectingLabel }
-                            |> Result.map (\n -> ( n, i + 1, cs ))
+                            |> Result.map (\n -> ( n, i, cs ))
 
         order i cs =
             case cs of
@@ -78,7 +82,8 @@ waypoint =
                     |> Result.andThen
                         (\( o, i2, cs2 ) ->
                             sign i2 cs2
-                                |> Result.map (Gc.Waypoint l o)
+                                |> Result.map
+                                    (\s -> { label = l, order = o, sign = s })
                         )
             )
 
@@ -122,26 +127,35 @@ validate f =
         >> (\( _, oks, errs ) ->
                 case errs of
                     [] ->
-                        Ok oks
+                        Ok <| List.reverse oks
 
                     _ ->
-                        Err errs
+                        Err <| List.reverse errs
            )
 
 
-gaussCode : String -> Result Bad Gc.Gc
+gaussCode : String -> Result (List Error) Gc.Gc
 gaussCode =
     String.toList
         >> stripSplit ((==) ' ')
         >> validate
             (\index { pos, run } ->
-                Result.mapError
-                    (\{ char, err } ->
-                        { index = index
-                        , pos = pos
-                        , char = char
-                        , err = err
-                        }
-                    )
-                    (waypoint run)
+                waypoint run
+                    |> Result.map
+                        (\{ label, order, sign } ->
+                            { label = label
+                            , order = order
+                            , sign = sign
+                            , index = index
+                            , pos = pos
+                            }
+                        )
+                    |> Result.mapError
+                        (\{ char, err } ->
+                            { index = index
+                            , pos = pos
+                            , char = char
+                            , err = err
+                            }
+                        )
             )

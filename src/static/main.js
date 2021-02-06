@@ -8,11 +8,14 @@ const updateSelection = ({ target }) => {
 };
 const sanitizeGauss = (s) => s.toLowerCase().replace(/[^\d uo+-]/, "");
 
-app.ports.setInput.subscribe((e) => {
-  gaussInput.value = e;
-  console.log(e);
-  app.ports.input.send([gaussInput.selectionStart, gaussInput.value]);
-});
+const setGauss = (s) => {
+  gaussInput.value = s;
+  app.ports.input.send([
+    gaussInput.hasFocus ? gaussInput.selectionStart : null,
+    gaussInput.value,
+  ]);
+};
+app.ports.setInput.subscribe(setGauss);
 
 gaussInput.addEventListener("input", ({ target }) => {
   const i = target.selectionStart;
@@ -25,5 +28,5 @@ gaussInput.addEventListener("input", ({ target }) => {
 gaussInput.addEventListener("focus", updateSelection);
 gaussInput.addEventListener("selectionchange", updateSelection);
 gaussInput.addEventListener("click", updateSelection);
-gaussInput.addEventListener("keydown", updateSelection);
+gaussInput.addEventListener("keyup", updateSelection);
 gaussInput.addEventListener("touchstart", updateSelection);

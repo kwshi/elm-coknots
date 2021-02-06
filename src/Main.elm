@@ -3,6 +3,8 @@ port module Main exposing (..)
 import Browser
 import Browser.Navigation as Nav
 import Calc
+import Css
+import ElmEscapeHtml as Esc
 import Gc
 import Gc.Check
 import Gc.Parse
@@ -19,16 +21,19 @@ import Url
 type alias Model =
     { nav : Nav.Key
     , input :
-        { cursor : Int
+        { cursor : Maybe Int
         , content : String
         }
+    , hoverErr : Maybe Int
     }
 
 
 type Msg
     = Nop
-    | Input ( Int, String )
-    | Selection ( Int, Int )
+    | Input ( Maybe Int, String )
+    | Selection (Maybe ( Int, Int ))
+    | HoverIn Int
+    | HoverOut
 
 
 main : Program () Model Msg
@@ -50,18 +55,20 @@ init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init () url nav =
     ( { nav = nav
       , input =
-            { cursor = 0
+            { cursor = Nothing
             , content = ""
             }
+      , hoverErr = Nothing
       }
-    , setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
+      --, setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
+    , setInput "1o+ 2u+ 3+ 1 2o+ 3u"
     )
 
 
-port input : (( Int, String ) -> msg) -> Sub msg
+port input : (( Maybe Int, String ) -> msg) -> Sub msg
 
 
-port selection : (( Int, Int ) -> msg) -> Sub msg
+port selection : (Maybe ( Int, Int ) -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg
@@ -79,11 +86,38 @@ view model =
     }
 
 
+addHighlight : Model -> Gc.Parse.Error -> (List Css.Style -> List Css.Style)
+addHighlight model err =
+    if
+        (model.hoverErr == Just err.index)
+            || (model.input.cursor
+                    |> Maybe.map
+                        (\c ->
+                            (err.pos + err.char - 1 <= c)
+                                && (c <= err.pos + err.char + 1)
+                        )
+                    |> Maybe.withDefault False
+               )
+    then
+        (::) Style.highlight
+
+    else
+        identity
+
+
 viewBody : Model -> List (Ht.Html Msg)
 viewBody model =
     let
         gc =
             Gc.Parse.gaussCode model.input.content
+
+        parseErrs =
+            case gc of
+                Ok _ ->
+                    []
+
+                Err es ->
+                    es
 
         errs =
             gc
@@ -97,11 +131,21 @@ viewBody model =
     in
     [ Ht.main_ [ At.css [ Style.root ] ]
         [ Ht.div [ At.css [ Style.content ] ]
-            [ Ht.input
-                [ At.id "gauss"
-                , At.css [ Style.input ]
+            [ Ht.div
+                [ At.css [ Style.controls ] ]
+                [ Ht.textarea
+                    [ At.id "gauss"
+                    , At.css [ Style.input ]
+                    , At.rows 1
+                    ]
+                    []
+                , Ht.div
+                    [ At.css [ Style.carets ] ]
+                    (viewErrCarets model parseErrs)
+                , Ht.dl
+                    [ At.css [ Style.errs ] ]
+                    (viewErrMsgs model parseErrs)
                 ]
-                []
             , Ht.br [] []
             , Ht.code [] [ Ht.text <| Debug.toString gc ]
             , Ht.br [] []
@@ -111,6 +155,129 @@ viewBody model =
             ]
         ]
     ]
+
+
+viewErrCarets : Model -> List Gc.Parse.Error -> List (Ht.Html Msg)
+viewErrCarets model =
+    List.foldl
+        (\e state ->
+            { els =
+                Ht.span
+                    [ At.css <| addHighlight model e [ Style.caret ]
+                    , Ev.onMouseOver <| HoverIn e.index
+                    , Ev.onMouseOut HoverOut
+                    ]
+                    [ Ht.text "^^" ]
+                    :: (Ht.text <| String.repeat (e.pos + e.char - state.pos - 1) " ")
+                    :: state.els
+            , pos = e.pos + e.char + 1
+            }
+        )
+        { pos = 0
+        , els = []
+        }
+        >> (.els >> List.reverse)
+
+
+ordinalToString : Int -> String
+ordinalToString n =
+    String.fromInt (n + 1)
+        ++ (case n of
+                0 ->
+                    "st"
+
+                1 ->
+                    "nd"
+
+                2 ->
+                    "rd"
+
+                _ ->
+                    "th"
+           )
+
+
+viewErrMsgs : Model -> List Gc.Parse.Error -> List (Ht.Html Msg)
+viewErrMsgs model =
+    List.concatMap
+        (\err ->
+            [ Ht.dt
+                [ At.css <| addHighlight model err [ Style.errLabel ]
+                , Ev.onMouseOver <| HoverIn err.index
+                , Ev.onMouseOut HoverOut
+                ]
+                [ Ht.text <| "Syntax error at " ++ ordinalToString err.index ++ " waypoint"
+                ]
+            , Ht.dd
+                [ At.css <| addHighlight model err [ Style.errMsg ]
+                , Ev.onMouseOver <| HoverIn err.index
+                , Ev.onMouseOut HoverOut
+                ]
+                (let
+                    code =
+                        Ht.code [ At.css [ Style.code ] ] << List.singleton << Ht.text
+
+                    codec =
+                        code << String.fromChar
+                 in
+                 case err.err of
+                    Gc.Parse.ExpectingLabel ->
+                        [ Ht.text "Expecting to see a label (e.g., "
+                        , code "5"
+                        , Ht.text " or "
+                        , code "12"
+                        , Ht.text ")"
+                        ]
+
+                    Gc.Parse.ExpectingOrder c ->
+                        if c == '+' || c == '-' then
+                            [ Ht.text "Need to specify "
+                            , codec 'u'
+                            , Ht.text " (under) or "
+                            , codec 'o'
+                            , Ht.text " (over) before the sign "
+                            , codec c
+                            , Ht.text "."
+                            ]
+
+                        else
+                            [ Ht.text "Expecting to see `u` (under) or `o` (over); got `"
+                            , codec c
+                            , Ht.text " instead."
+                            ]
+
+                    Gc.Parse.ExpectingSign c ->
+                        [ Ht.text
+                            "Expecting to see a sign, i.e. "
+                        , codec '+'
+                        , Ht.text " or "
+                        , codec '-'
+                        , Ht.text "; got "
+                        , codec c
+                        , Ht.text " instead."
+                        ]
+
+                    Gc.Parse.MissingSign ->
+                        [ Ht.text "Need to specify a sign, i.e. "
+                        , codec '+'
+                        , Ht.text " or "
+                        , codec '-'
+                        , Ht.text "."
+                        ]
+
+                    Gc.Parse.MissingOrder ->
+                        [ Ht.text "Need to specify "
+                        , codec 'u'
+                        , Ht.text " (under) or "
+                        , codec 'o'
+                        , Ht.text " (over)."
+                        ]
+
+                    Gc.Parse.ExpectingEnd ->
+                        [ Ht.text "Too many characters. Did you accidentally miss a space?" ]
+                )
+            ]
+        )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -126,13 +293,19 @@ update msg model =
             , Cmd.none
             )
 
-        Selection ( i, _ ) ->
+        Selection sel ->
             model.input
                 |> (\data ->
                         ( { model
                             | input =
-                                { data | cursor = i }
+                                { data | cursor = Maybe.map Tuple.first sel }
                           }
                         , Cmd.none
                         )
                    )
+
+        HoverIn i ->
+            ( { model | hoverErr = Just i }, Cmd.none )
+
+        HoverOut ->
+            ( { model | hoverErr = Nothing }, Cmd.none )
