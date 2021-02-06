@@ -1,8 +1,7 @@
 module Calc exposing (..)
 
 import Dict
-import GaussCode as Gc
-import GaussCode.Common as Gcc
+import Gc
 
 
 type Axis = H | V
@@ -75,7 +74,7 @@ getTerminal v =
             Just t
 
 
-getTerminals : Gc.GaussCode -> Maybe (List Terminal)
+getTerminals : Gc.Gc -> Maybe (List Terminal)
 getTerminals waypoints =
     zipNeighbors waypoints
         |> Debug.log "zipneighbors"
@@ -93,12 +92,12 @@ getTerminals waypoints =
 
 
 type Visited
-    = Once ( Int, Int ) Gcc.Order Gcc.Sign
+    = Once ( Int, Int ) Gc.Order Gc.Sign
     | Twice Terminal
 
 
 markTerminal :
-    Neighbors Gc.Crossing
+    Neighbors Gc.Waypoint
     -> Maybe (Dict.Dict Int Visited)
     -> Maybe (Dict.Dict Int Visited)
 markTerminal { prev, prevSeg, curr, nextSeg, next } =
@@ -116,8 +115,8 @@ markTerminal { prev, prevSeg, curr, nextSeg, next } =
                     let
                         dominant = 
                           case curr.order of
-                            Gcc.Over -> V
-                            Gcc.Under -> H
+                            Gc.Over -> V
+                            Gc.Under -> H
 
                         make n s = {n = n, e = e, s = s, w = w, dominant = dominant}
                         up = make nextSeg prevSeg
@@ -128,16 +127,16 @@ markTerminal { prev, prevSeg, curr, nextSeg, next } =
                     if curr.order == order then Nothing else
                     Dict.insert curr.label
                         (case ( curr.sign, curr.order ) of
-                            ( Gcc.Plus, Gcc.Under ) ->
+                            ( Gc.Plus, Gc.Under ) ->
                                 Twice up
 
-                            ( Gcc.Minus, Gcc.Under ) ->
+                            ( Gc.Minus, Gc.Under ) ->
                                 Twice down
 
-                            ( Gcc.Minus, Gcc.Over ) ->
+                            ( Gc.Minus, Gc.Over ) ->
                                 Twice up
 
-                            ( Gcc.Plus, Gcc.Over ) ->
+                            ( Gc.Plus, Gc.Over ) ->
                                 Twice down
                         )
                         terminals

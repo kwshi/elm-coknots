@@ -1,25 +1,34 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
-import GaussCode as Gc
-import GaussCode.Parser as Gcp
+import Calc
+import Gc
+import Gc.Check
+import Gc.Parse
 import Html.Styled as Ht
 import Html.Styled.Attributes as At
 import Html.Styled.Events as Ev
+import Json.Decode as Jd
+import Json.Encode as Je
 import Parser.Advanced as Parser
+import Style
 import Url
-import Calc
 
 
 type alias Model =
-    { input : String
+    { nav : Nav.Key
+    , input :
+        { cursor : Int
+        , content : String
+        }
     }
 
 
 type Msg
     = Nop
-    | Input String
+    | Input ( Int, String )
+    | Selection ( Int, Int )
 
 
 main : Program () Model Msg
@@ -34,12 +43,33 @@ main =
         }
 
 
+port setInput : String -> Cmd msg
+
+
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init () url nav =
-    ( { input = "1u+ 2o+ 3u+ 1o+ 2u+ 3o+"
+    ( { nav = nav
+      , input =
+            { cursor = 0
+            , content = ""
+            }
       }
-    , Cmd.none
+    , setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
     )
+
+
+port input : (( Int, String ) -> msg) -> Sub msg
+
+
+port selection : (( Int, Int ) -> msg) -> Sub msg
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    [ input Input
+    , selection Selection
+    ]
+        |> Sub.batch
 
 
 view : Model -> Browser.Document Msg
@@ -51,21 +81,35 @@ view model =
 
 viewBody : Model -> List (Ht.Html Msg)
 viewBody model =
-  let 
-      gc = 
-        Parser.run Gc.parser model.input
+    let
+        gc =
+            Gc.Parse.gaussCode model.input.content
 
-      terms = 
-        gc 
-        |> Result.toMaybe 
-        |> Maybe.andThen Calc.getTerminals
-  in
-    [ Ht.input [ At.value model.input, Ev.onInput Input ] []
-    , Ht.code [] [ Ht.text <| Debug.toString model ]
-    , Ht.br [] []
-    , Ht.code [] [ Ht.text <| Debug.toString  gc ]
-    , Ht.br [] []
-    , Ht.code [] [ Ht.text <| Debug.toString terms ]
+        errs =
+            gc
+                |> Result.toMaybe
+                |> Maybe.map Gc.Check.check
+
+        terms =
+            gc
+                |> Result.toMaybe
+                |> Maybe.andThen Calc.getTerminals
+    in
+    [ Ht.main_ [ At.css [ Style.root ] ]
+        [ Ht.div [ At.css [ Style.content ] ]
+            [ Ht.input
+                [ At.id "gauss"
+                , At.css [ Style.input ]
+                ]
+                []
+            , Ht.br [] []
+            , Ht.code [] [ Ht.text <| Debug.toString gc ]
+            , Ht.br [] []
+            , Ht.code [] [ Ht.text <| Debug.toString errs ]
+            , Ht.br [] []
+            , Ht.code [] [ Ht.text <| Debug.toString terms ]
+            ]
+        ]
     ]
 
 
@@ -75,10 +119,20 @@ update msg model =
         Nop ->
             ( model, Cmd.none )
 
-        Input s ->
-            ( { model | input = s } , Cmd.none)
+        Input ( i, content ) ->
+            ( { model
+                | input = { cursor = i, content = content }
+              }
+            , Cmd.none
+            )
 
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.none
+        Selection ( i, _ ) ->
+            model.input
+                |> (\data ->
+                        ( { model
+                            | input =
+                                { data | cursor = i }
+                          }
+                        , Cmd.none
+                        )
+                   )
