@@ -14,6 +14,7 @@ import Html.Styled.Events as Ev
 import Json.Decode as Jd
 import Json.Encode as Je
 import Parser.Advanced as Parser
+import Preset
 import Style
 import Url
 
@@ -32,6 +33,7 @@ type Msg
     = Nop
     | Input ( Maybe Int, String )
     | Selection (Maybe ( Int, Int ))
+    | SetInput String
     | HoverIn Int
     | HoverOut
 
@@ -133,10 +135,25 @@ viewBody model =
         [ Ht.div [ At.css [ Style.content ] ]
             [ Ht.div
                 [ At.css [ Style.controls ] ]
-                [ Ht.textarea
+                [ Ht.div
+                    [ At.css [ Style.examples ] ]
+                    (Ht.label [ At.css [ Style.examplesLabel ] ]
+                        [ Ht.text "Try some examples:" ]
+                        :: List.map
+                            (\ex ->
+                                Ht.button
+                                    [ At.css [ Style.example ]
+                                    , Ev.onClick <| SetInput ex.code
+                                    ]
+                                    ex.name
+                            )
+                            Preset.all
+                    )
+                , Ht.textarea
                     [ At.id "gauss"
                     , At.css [ Style.input ]
                     , At.rows 1
+                    , Ev.onBlur (Selection Nothing)
                     ]
                     []
                 , Ht.div
@@ -292,6 +309,9 @@ update msg model =
               }
             , Cmd.none
             )
+
+        SetInput s ->
+            ( model, setInput s )
 
         Selection sel ->
             model.input

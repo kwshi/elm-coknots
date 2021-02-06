@@ -7,6 +7,11 @@ import Css.Systems.Text as Tx
 import Css.Systems.Utilities as Ut
 
 
+transitionBg : Style
+transitionBg =
+    property "transition" "50ms background-color linear"
+
+
 root : Style
 root =
     [ minWidth Sp.sizeLG
@@ -58,6 +63,38 @@ code =
         |> batch
 
 
+examples : Style
+examples =
+    [ displayFlex
+    , Ut.itemsBaseline
+    ]
+        |> batch
+
+
+examplesLabel : Style
+examplesLabel =
+    [ fontWeight bold
+    , marginRight Sp.space2
+    ]
+        |> batch
+
+
+example : Style
+example =
+    [ border Sp.space0
+    , cursor pointer
+    , color Cl.blue500
+    , backgroundColor transparent
+    , margin Sp.space0
+    , transitionBg
+    , padding2 Sp.space1 Sp.space2
+    , hover
+        [ backgroundColor Cl.blue100
+        ]
+    ]
+        |> batch
+
+
 input : Style
 input =
     [ border3 (px 1) solid Cl.blue300
@@ -102,7 +139,7 @@ caret : Style
 caret =
     [ paddingTop Sp.space1
     , display inlineBlock
-    , property "transition" "50ms background-color linear"
+    , transitionBg
     ]
         |> batch
 
@@ -123,7 +160,7 @@ errLabel =
     , paddingLeft Sp.space3
     , paddingRight Sp.space2
     , Ut.paddingY Sp.space1
-    , property "transition" "50ms background-color linear"
+    , transitionBg
     , after
         [ property "content" "\":\""
         ]
@@ -136,6 +173,6 @@ errMsg =
     [ margin Sp.space0
     , Ut.paddingY Sp.space1
     , Ut.flexInitial
-    , property "transition" "50ms background-color linear"
+    , transitionBg
     ]
         |> batch
