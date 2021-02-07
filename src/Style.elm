@@ -55,10 +55,10 @@ code : Style
 code =
     [ fontSize inherit
     , fontFamilies [ "Roboto Mono", "monospace" ]
-    , backgroundColor Cl.blue100
+    , backgroundColor Cl.gray200
     , Ut.paddingX Sp.space1
     , borderRadius Sp.space1
-    , border3 (px 1) solid Cl.blue200
+    , border3 (px 1) solid Cl.gray400
     ]
         |> batch
 
@@ -174,6 +174,7 @@ errMsg : Style
 errMsg =
     [ margin Sp.space0
     , Ut.paddingY Sp.space1
+    , color Cl.red800
     , Ut.flexInitial
     , transitionBg
     ]
