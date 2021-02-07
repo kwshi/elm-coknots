@@ -83,7 +83,7 @@ example : Style
 example =
     [ border Sp.space0
     , cursor pointer
-    , color Cl.blue600
+    , color Cl.blue700
     , backgroundColor transparent
     , margin Sp.space0
     , transitionBg
