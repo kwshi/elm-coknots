@@ -13,6 +13,7 @@ import Html.Styled.Attributes as At
 import Html.Styled.Events as Ev
 import Json.Decode as Jd
 import Json.Encode as Je
+import Layout
 import Parser.Advanced as Parser
 import Preset
 import Style
