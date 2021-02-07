@@ -16,7 +16,9 @@ import Json.Encode as Je
 import Layout
 import Parser.Advanced as Parser
 import Preset
+import Render
 import Style
+import Svg.Styled as Svg
 import Url
 
 
@@ -63,8 +65,8 @@ init () url nav =
             }
       , hoverErr = Nothing
       }
-      --, setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
-    , setInput "1o+ 2u+ 3+ 1 2o+ 3u"
+    , setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
+      --, setInput "1o+ 2u+ 3+ 1 2o+ 3u"
     )
 
 
@@ -131,6 +133,10 @@ viewBody model =
             gc
                 |> Result.toMaybe
                 |> Maybe.andThen Calc.getTerminals
+
+        layout =
+            terms
+                |> Maybe.andThen Layout.build
     in
     [ Ht.main_ [ At.css [ Style.root ] ]
         [ Ht.div [ At.css [ Style.content ] ]
@@ -165,12 +171,21 @@ viewBody model =
                     [ At.css [ Style.errs ] ]
                     (viewErrMsgs model parseErrs)
                 ]
+            , Ht.div [] <|
+                case layout of
+                    Nothing ->
+                        []
+
+                    Just l ->
+                        [ Render.render l ]
             , Ht.br [] []
             , Ht.code [] [ Ht.text <| Debug.toString gc ]
             , Ht.br [] []
             , Ht.code [] [ Ht.text <| Debug.toString errs ]
             , Ht.br [] []
             , Ht.code [] [ Ht.text <| Debug.toString terms ]
+            , Ht.br [] []
+            , Ht.code [] [ Ht.text <| Debug.toString layout ]
             ]
         ]
     ]

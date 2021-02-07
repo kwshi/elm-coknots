@@ -118,9 +118,14 @@ west seg state =
                 )
 
     else if state.first.w == seg then
+        -- TODO handle first better
         { state
             | above = Stact.push seg state.x state.above
             , below = Stact.push seg state.x state.below
+            , layout =
+                Dict.update seg
+                    (initPush <| Spine state.x (state.x + 1))
+                    state.layout
             , x = state.x + 1
         }
             |> Just
@@ -131,63 +136,139 @@ west seg state =
                 Dict.insert seg
                     [ Spine (state.x - 1) state.x ]
                     state.layout
-            , x = state.x + 1
+            , x = state.x
         }
             |> Just
 
 
+north : Int -> State -> State
+north seg state =
+    { seg = seg
+    , stact = state.above
+    , side = N
+    , layout = state.layout
+    , x = state.x
+    }
+        |> vert
+        |> (\{ stact, layout } ->
+                { state | above = stact, layout = layout }
+           )
 
---Stact.shiftPopEither seg ( state.above, state.below )
---    |> Maybe.map
---        (\( start, which, ( newAbove, newBelow ) ) ->
---            { state
---                | above = newAbove
---                , below = newBelow
---                , layout =
---                    Dict.update
---                        seg
---                        (Maybe.withDefault []
---                            >> (::)
---                                (Arc
---                                    (case which of
---                                        Stact.First ->
---                                            N
---                                        Stact.Second ->
---                                            S
---                                    )
---                                    start.x
---                                    state.x
---                                )
---                            >> Just
---                        )
---                        state.layout
---            }
---        )
---    |> Maybe.withDefault
---        (if seg == state.first.w then
---            -- special handling for first
---            { state
---                | above = Stact.push seg state.above
---                , below = Stact.push seg state.below
---            }
---         else
---            -- if it's not in the above or below,
---            -- then it must be along the spine
---            -- from the previous terminal
---            { state
---                | layout =
---                    Dict.insert
---                        seg
---                        [ Spine (state.x - 1) state.x ]
---                        state.layout
---                , x = state.x + 1
---            }
---        )
+
+incX : State -> State
+incX state =
+    { state | x = state.x + 1 }
+
+
+south : Int -> State -> State
+south seg state =
+    { seg = seg
+    , stact = state.below
+    , side = S
+    , x = state.x
+    , layout = state.layout
+    }
+        |> vert
+        |> (\{ stact, layout } ->
+                { state | below = stact, layout = layout }
+           )
+
+
+vert :
+    { seg : Int
+    , stact : Stact.Stact Int Int
+    , side : Side
+    , x : Int
+    , layout : Layout
+    }
+    ->
+        { stact : Stact.Stact Int Int
+        , layout : Layout
+        }
+vert { seg, stact, side, x, layout } =
+    Stact.pushOrPop seg x stact
+        |> (\( popped, newStact ) ->
+                { stact = newStact
+                , layout =
+                    (Maybe.map
+                        (\start -> Dict.update seg (initPush <| Arc side start x))
+                        popped
+                        |> Maybe.withDefault identity
+                    )
+                        layout
+                }
+           )
+
+
+east : Int -> State -> Maybe State
+east seg state =
+    Stact.pop state.above
+        |> Maybe.andThen
+            (\( ( s, start ), above ) ->
+                if s == seg then
+                    { state
+                        | layout =
+                            Dict.update seg
+                                (Maybe.withDefault []
+                                    >> (::) (Arc N start state.x)
+                                    >> (::) (Spine (state.x - 1) state.x)
+                                    >> Just
+                                )
+                                state.layout
+                        , x = state.x + 1
+                        , above = above
+                    }
+                        |> Just
+
+                else
+                    Nothing
+            )
+        |> Maybe.withDefault
+            (Stact.pop state.below
+                |> Maybe.andThen
+                    (\( ( s, start ), below ) ->
+                        if s == seg then
+                            { state
+                                | layout =
+                                    Dict.update seg
+                                        (Maybe.withDefault []
+                                            >> (::) (Arc S start state.x)
+                                            >> (::) (Spine (state.x - 1) state.x)
+                                            >> Just
+                                        )
+                                        state.layout
+                                , x = state.x + 1
+                                , below = below
+                            }
+                                |> Just
+
+                        else
+                            Nothing
+                    )
+                |> Maybe.withDefault
+                    -- better not be the last strand
+                    state
+            )
+        |> Just
 
 
 next : Calc.Terminal -> Maybe State -> Maybe State
 next terminal =
-    Maybe.andThen (\state -> west terminal.w state)
+    let
+        _ =
+            Debug.log "handling terminal" terminal
+    in
+    Debug.log "initial state"
+        >> Maybe.andThen (west terminal.w)
+        >> Maybe.map (Debug.log "after handling west")
+        >> Maybe.map (north terminal.n)
+        >> Maybe.map (Debug.log "after handling north")
+        >> Maybe.map (south terminal.s)
+        >> Maybe.map (Debug.log "after handling south")
+        >> Maybe.map incX
+        >> Maybe.map (Debug.log "incx")
+        >> Maybe.andThen (east terminal.e)
+        >> Maybe.map (Debug.log "after handling east")
 
 
 build : List Calc.Terminal -> Maybe Layout
@@ -200,4 +281,4 @@ build terminals =
         first :: _ ->
             -- TODO handle first better
             List.foldl next (Just <| init first) terminals
-                |> Maybe.map .layout
+                |> Maybe.map (.layout >> Dict.map (always List.reverse))

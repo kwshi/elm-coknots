@@ -54,6 +54,20 @@ pop (Stact { stack, dict }) =
                 )
 
 
+pushOrPop : comparable -> a -> Stact comparable a -> ( Maybe a, Stact comparable a )
+pushOrPop k v st =
+    case pop st of
+        Nothing ->
+            ( Nothing, push k v st )
+
+        Just ( ( kTop, vTop ), newSt ) ->
+            if kTop /= k then
+                ( Nothing, push k v st )
+
+            else
+                ( Just vTop, newSt )
+
+
 member : comparable -> Stact comparable a -> Bool
 member k (Stact { dict }) =
     Dict.member k dict

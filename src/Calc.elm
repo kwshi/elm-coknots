@@ -101,6 +101,7 @@ getTerminals waypoints =
         |> Maybe.andThen
             (\{ spine, terminals } ->
                 spine
+                    |> List.reverse
                     |> List.map
                         (\crossing ->
                             Dict.get crossing terminals
