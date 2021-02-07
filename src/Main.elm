@@ -155,6 +155,7 @@ viewBody model =
                     , At.css [ Style.input ]
                     , At.rows 1
                     , Ev.onBlur (Selection Nothing)
+                    , At.placeholder "Enter a Gauss code (e.g. `1o+ 1u+`)..."
                     ]
                     []
                 , Ht.div
