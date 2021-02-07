@@ -276,7 +276,7 @@ build terminals =
     case terminals of
         [] ->
             -- handle unknot specially, since by our encoding it has "no" arcs
-            Just <| Dict.singleton 0 [ Arc S 0 1, Arc N 1 0 ]
+            Just <| Dict.singleton 0 [ Arc S 0 1, Arc N 0 1 ]
 
         first :: _ ->
             -- TODO handle first better
