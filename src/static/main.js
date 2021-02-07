@@ -26,7 +26,7 @@ gaussInput.addEventListener("input", ({ target }) => {
   app.ports.input.send([target.selectionStart, target.value]);
 });
 gaussInput.addEventListener("focus", updateSelection);
-gaussInput.addEventListener("selectionchange", updateSelection);
 gaussInput.addEventListener("click", updateSelection);
 gaussInput.addEventListener("keyup", updateSelection);
 gaussInput.addEventListener("touchstart", updateSelection);
+gaussInput.addEventListener("touchend", updateSelection);
