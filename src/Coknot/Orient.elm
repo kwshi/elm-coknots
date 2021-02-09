@@ -1,4 +1,4 @@
-module Calc exposing (..)
+module Coknot.Orient exposing (..)
 
 import Dict
 import Gc

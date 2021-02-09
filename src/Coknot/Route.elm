@@ -1,6 +1,6 @@
-module Layout exposing (..)
+module Coknot.Route exposing (..)
 
-import Calc
+import Coknot.Orient as Orient
 import Dict
 import Set
 import Stact
@@ -26,14 +26,14 @@ type alias Layout =
 
 type alias State =
     { layout : Layout
-    , first : Calc.Terminal
+    , first : Orient.Terminal
     , above : Stact.Stact Int Int
     , below : Stact.Stact Int Int
     , x : Int
     }
 
 
-init : Calc.Terminal -> State
+init : Orient.Terminal -> State
 init first =
     { x = 0
     , first = first
@@ -56,14 +56,25 @@ type alias ShiftState =
     }
 
 
-shift : Int -> ShiftState -> Maybe ShiftState
-shift seg state =
+shift : ( Int, Side, Side ) -> ShiftState -> Maybe ShiftState
+shift ( seg, fromSide, toSide ) state =
     Stact.popUntil seg
         (\s start { x, layout, to } ->
-            { x = x + 1
-            , to = Stact.push s start to
-            , layout = Dict.update s (initPush <| Arc N start x) layout
-            }
+            Stact.pushOrPop s x (Debug.log "TO BEFORE" to)
+                |> (\( popped, newTo ) ->
+                        { x = x + 1
+                        , to = Debug.log "NEW TO" newTo
+                        , layout =
+                            Dict.update s (initPush <| Arc fromSide start x) layout
+                                |> (case popped of
+                                        Nothing ->
+                                            identity
+
+                                        Just otherStart ->
+                                            Dict.update s (initPush <| Arc toSide otherStart x)
+                                   )
+                        }
+                   )
         )
         { x = state.x
         , to = state.to
@@ -76,7 +87,14 @@ shift seg state =
                     | x = x + 1
                     , to = to
                     , from = from
-                    , layout = Dict.update seg (initPush <| Arc N start x) layout
+                    , layout =
+                        Dict.update seg
+                            (Maybe.withDefault []
+                                >> (::) (Arc fromSide start x)
+                                >> (::) (Spine x (x + 1))
+                                >> Just
+                            )
+                            layout
                 }
             )
 
@@ -89,7 +107,7 @@ west seg state =
         , to = state.below
         , layout = state.layout
         }
-            |> shift seg
+            |> shift ( seg, N, S )
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
@@ -106,7 +124,7 @@ west seg state =
         , to = state.above
         , layout = state.layout
         }
-            |> shift seg
+            |> shift ( seg, S, N )
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
@@ -252,7 +270,7 @@ east seg state =
         |> Just
 
 
-next : Calc.Terminal -> Maybe State -> Maybe State
+next : Orient.Terminal -> Maybe State -> Maybe State
 next terminal =
     let
         _ =
@@ -271,7 +289,7 @@ next terminal =
         >> Maybe.map (Debug.log "after handling east")
 
 
-build : List Calc.Terminal -> Maybe Layout
+build : List Orient.Terminal -> Maybe Layout
 build terminals =
     case terminals of
         [] ->
