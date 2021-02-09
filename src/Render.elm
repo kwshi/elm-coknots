@@ -61,7 +61,7 @@ render =
                             []
             )
         >> Svg.svg
-            [ At.width "300"
-            , At.height "300"
-            , At.viewBox "-4 -4 24 8"
+            [ At.width "800"
+            , At.height "200"
+            , At.viewBox "-4 -4 32 8"
             ]
