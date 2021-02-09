@@ -1,9 +1,9 @@
 module Render exposing (..)
 
+import Coknot.Route as Route
 import Dict
 import Html.Styled as Html
 import Html.Styled.Attributes as Hat
-import Layout
 import Svg.PathD as Path
 import Svg.Styled as Svg
 import Svg.Styled.Attributes as At
@@ -17,14 +17,14 @@ strokeAttrs =
     ]
 
 
-render : Layout.Layout -> Html.Html msg
+render : Route.Layout -> Html.Html msg
 render =
     Dict.values
         >> List.concat
         >> List.map
             (\part ->
                 case part of
-                    Layout.Spine x1 x2 ->
+                    Route.Spine x1 x2 ->
                         Svg.path
                             (([ Path.M ( toFloat x1, 0 )
                               , Path.L ( toFloat x2, 0 )
@@ -35,7 +35,7 @@ render =
                             )
                             []
 
-                    Layout.Arc side x1 x2 ->
+                    Route.Arc side x1 x2 ->
                         let
                             r =
                                 toFloat (x2 - x1) / 2
@@ -46,10 +46,10 @@ render =
                                     0
                                     True
                                     (case side of
-                                        Layout.N ->
+                                        Route.N ->
                                             True
 
-                                        Layout.S ->
+                                        Route.S ->
                                             False
                                     )
                                     ( toFloat x2, 0 )
@@ -63,5 +63,5 @@ render =
         >> Svg.svg
             [ At.width "300"
             , At.height "300"
-            , At.viewBox "-4 -4 8 8"
+            , At.viewBox "-4 -4 24 8"
             ]

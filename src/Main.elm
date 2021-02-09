@@ -2,7 +2,8 @@ port module Main exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
-import Calc
+import Coknot.Orient
+import Coknot.Route
 import Css
 import ElmEscapeHtml as Esc
 import Gc
@@ -13,7 +14,6 @@ import Html.Styled.Attributes as At
 import Html.Styled.Events as Ev
 import Json.Decode as Jd
 import Json.Encode as Je
-import Layout
 import Parser.Advanced as Parser
 import Preset
 import Render
@@ -132,11 +132,11 @@ viewBody model =
         terms =
             gc
                 |> Result.toMaybe
-                |> Maybe.andThen Calc.getTerminals
+                |> Maybe.andThen Coknot.Orient.getTerminals
 
         layout =
             terms
-                |> Maybe.andThen Layout.build
+                |> Maybe.andThen Coknot.Route.build
     in
     [ Ht.main_ [ At.css [ Style.root ] ]
         [ Ht.div [ At.css [ Style.content ] ]
