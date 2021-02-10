@@ -321,6 +321,7 @@ end state =
                             state.layout
                     , above = above
                     , below = below
+                    , x = state.x + 1
                 }
                     |> end
 
