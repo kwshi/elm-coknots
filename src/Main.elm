@@ -39,6 +39,8 @@ type Msg
     | SetInput String
     | HoverIn Int
     | HoverOut
+    | RotLeft
+    | RotRight
 
 
 main : Program () Model Msg
@@ -170,6 +172,19 @@ viewBody model =
                 , Ht.dl
                     [ At.css [ Style.errs ] ]
                     (viewErrMsgs model parseErrs)
+                , Ht.div
+                    [ At.css [ Style.btns ] ]
+                    [ Ht.button
+                        [ At.css [ Style.btn ]
+                        , Ev.onClick RotLeft
+                        ]
+                        [ Ht.text <| Esc.unescape "&#x21b6;" ]
+                    , Ht.button
+                        [ At.css [ Style.btn ]
+                        , Ev.onClick RotRight
+                        ]
+                        [ Ht.text <| Esc.unescape "&#x21b7;" ]
+                    ]
                 ]
             , Ht.div [] <|
                 case layout of
@@ -346,3 +361,31 @@ update msg model =
 
         HoverOut ->
             ( { model | hoverErr = Nothing }, Cmd.none )
+
+        RotLeft ->
+            ( model, setInput (parts model.input.content |> rotLeft |> String.join " ") )
+
+        RotRight ->
+            ( model, setInput (parts model.input.content |> rotRight |> String.join " ") )
+
+
+parts : String -> List String
+parts =
+    String.toList
+        >> Gc.Parse.stripSplit ((==) ' ')
+        >> List.map (.run >> String.fromList)
+
+
+rotLeft : List a -> List a
+rotLeft l =
+    case l of
+        [] ->
+            []
+
+        a :: rest ->
+            rest ++ [ a ]
+
+
+rotRight : List a -> List a
+rotRight =
+    List.reverse >> rotLeft >> List.reverse

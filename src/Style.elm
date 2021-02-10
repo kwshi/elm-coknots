@@ -151,6 +151,7 @@ errs =
     [ margin Sp.space0
     , property "display" "grid"
     , property "grid-template-columns" "max-content 1fr"
+    , marginBottom Sp.space2
     ]
         |> batch
 
@@ -177,5 +178,29 @@ errMsg =
     , color Cl.red800
     , Ut.flexInitial
     , transitionBg
+    ]
+        |> batch
+
+
+btns : Style
+btns =
+    [ displayFlex
+    ]
+        |> batch
+
+
+btn : Style
+btn =
+    [ padding2 Sp.space1 Sp.space2
+    , marginRight Sp.space4
+    , cursor pointer
+    , fontWeight bold
+    , backgroundColor Cl.blue500
+    , borderWidth Sp.space0
+    , color Cl.white
+    , fontFamily inherit
+    , fontSize inherit
+    , transitionBg
+    , hover [ backgroundColor Cl.blue600 ]
     ]
         |> batch
