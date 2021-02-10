@@ -220,6 +220,15 @@ vert { seg, stact, side, x, layout } =
 
 east : Int -> State -> Maybe State
 east seg state =
+    --let
+    --    matchTop st =
+    --        Stact.peek st
+    --            |> Maybe.map Tuple.first
+    --            |> (==) (Just seg)
+    --in
+    --if matchTop state.above then
+    --else if matchTop state.below then
+    --else
     Stact.pop state.above
         |> Maybe.andThen
             (\( ( s, start ), above ) ->
@@ -264,8 +273,15 @@ east seg state =
                             Nothing
                     )
                 |> Maybe.withDefault
-                    -- better not be the last strand
-                    state
+                    { state
+                        | layout =
+                            Dict.update seg
+                                (initPush <| Spine (state.x - 1) state.x)
+                                state.layout
+                        , above =
+                            Stact.push seg state.x state.above
+                        , x = state.x + 1
+                    }
             )
         |> Just
 
@@ -289,6 +305,32 @@ next terminal =
         >> Maybe.map (Debug.log "after handling east")
 
 
+end : State -> State
+end state =
+    case ( Stact.pop state.above, Stact.pop state.below ) of
+        ( Just ( ( s1, x1 ), above ), Just ( ( s2, x2 ), below ) ) ->
+            if s1 == s2 then
+                { state
+                    | layout =
+                        Dict.update s1
+                            (Maybe.withDefault []
+                                >> (::) (Arc N x1 state.x)
+                                >> (::) (Arc S x2 state.x)
+                                >> Just
+                            )
+                            state.layout
+                    , above = above
+                    , below = below
+                }
+                    |> end
+
+            else
+                state
+
+        _ ->
+            state
+
+
 build : List Orient.Terminal -> Maybe Layout
 build terminals =
     case terminals of
@@ -299,4 +341,5 @@ build terminals =
         first :: _ ->
             -- TODO handle first better
             List.foldl next (Just <| init first) terminals
+                |> Maybe.map end
                 |> Maybe.map (.layout >> Dict.map (always List.reverse))
