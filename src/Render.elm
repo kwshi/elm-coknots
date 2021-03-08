@@ -17,11 +17,16 @@ strokeAttrs =
     ]
 
 
-render : Route.Layout -> Html.Html msg
-render =
-    Dict.values
-        >> List.concat
-        >> List.map
+render : Route.Success -> Html.Html msg
+render { layout, width } =
+    let
+        _ =
+            Debug.log "width" width
+    in
+    layout
+        |> Dict.values
+        |> List.concat
+        |> List.map
             (\part ->
                 case part of
                     Route.Spine x1 x2 ->
@@ -60,8 +65,8 @@ render =
                             )
                             []
             )
-        >> Svg.svg
+        |> Svg.svg
             [ At.width "800"
             , At.height "400"
-            , At.viewBox "-2 -12 48 24"
+            , At.viewBox <| "-1 -12 " ++ String.fromInt (width + 1) ++ " 25"
             ]

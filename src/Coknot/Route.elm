@@ -33,6 +33,12 @@ type alias State =
     }
 
 
+type alias Success =
+    { layout : Layout
+    , width : Int
+    }
+
+
 init : Orient.Terminal -> State
 init first =
     { x = 0
@@ -332,15 +338,24 @@ end state =
             state
 
 
-build : List Orient.Terminal -> Maybe Layout
+build : List Orient.Terminal -> Maybe Success
 build terminals =
     case terminals of
         [] ->
             -- handle unknot specially, since by our encoding it has "no" arcs
-            Just <| Dict.singleton 0 [ Arc S 0 1, Arc N 0 1 ]
+            Just
+                { layout = Dict.singleton 0 [ Arc S 0 1, Arc N 0 1 ]
+                , width = 1
+                }
 
         first :: _ ->
             -- TODO handle first better
             List.foldl next (Just <| init first) terminals
                 |> Maybe.map end
-                |> Maybe.map (.layout >> Dict.map (always List.reverse))
+                |> Debug.log "end"
+                |> Maybe.map
+                    (\st ->
+                        { layout = Dict.map (always List.reverse) st.layout
+                        , width = st.x
+                        }
+                    )
