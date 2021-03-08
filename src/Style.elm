@@ -97,20 +97,35 @@ example =
         |> batch
 
 
+inputWrapper : Style
+inputWrapper =
+    [ position relative
+    , displayFlex
+    , flexDirection column
+    , flexGrow <| num 1
+    ]
+        |> batch
+
+
 input : Style
 input =
     [ border3 (px 1) solid Cl.blue300
+    , position relative
+    , zIndex <| int 10
     , height Sp.space4
     , lineHeight Sp.space4
     , padding2 Sp.space2 Sp.space3
     , resize none
+    , outline none
     , whiteSpace pre
     , color inherit
     , overflowY hidden
+    , backgroundColor transparent
     , property "scrollbar-width" "none"
     , fontFamilies [ "Roboto Mono", "monospace" ]
     , fontSize inherit
     , margin Sp.space0
+    , boxShadow none
     ]
         |> batch
 
@@ -118,9 +133,13 @@ input =
 carets : Style
 carets =
     [ whiteSpace pre
+    , Css.position Css.absolute
+    , Css.top <| Css.rem 0
+    , Css.left <| Css.rem 0
+    , Css.bottom <| Css.rem 0
+    , Css.right <| Css.rem 0
     , Ut.paddingX Sp.space3
-    , height Sp.space6
-    , color Cl.red800
+    , color Cl.red700
     , fontWeight bold
     , fontFamilies [ "Roboto Mono", "monospace" ]
     , borderLeft3 (px 1) solid transparent
@@ -139,9 +158,19 @@ highlight =
 
 caret : Style
 caret =
-    [ paddingTop Sp.space1
-    , display inlineBlock
+    [ display inlineBlock
+    , Ut.paddingY Sp.space2
     , transitionBg
+    , textDecoration underline
+    ]
+        |> batch
+
+
+msg : Style
+msg =
+    [ marginBottom Sp.space2
+    , height Sp.space4
+    , lineHeight Sp.space4
     ]
         |> batch
 
@@ -149,8 +178,6 @@ caret =
 errs : Style
 errs =
     [ margin Sp.space0
-    , property "display" "grid"
-    , property "grid-template-columns" "max-content 1fr"
     , marginBottom Sp.space2
     ]
         |> batch
@@ -160,8 +187,6 @@ errLabel : Style
 errLabel =
     [ fontWeight bold
     , color Cl.red800
-    , paddingLeft Sp.space3
-    , paddingRight Sp.space2
     , Ut.paddingY Sp.space1
     , transitionBg
     , after
@@ -171,8 +196,8 @@ errLabel =
         |> batch
 
 
-errMsg : Style
-errMsg =
+err : Style
+err =
     [ margin Sp.space0
     , Ut.paddingY Sp.space1
     , color Cl.red800
@@ -182,9 +207,14 @@ errMsg =
         |> batch
 
 
-btns : Style
-btns =
+editor : Style
+editor =
     [ displayFlex
+    , outline3 Sp.space1 solid transparent
+    , property "transition" "150ms outline-color"
+    , pseudoClass "focus-within"
+        [ outlineColor Cl.blue200
+        ]
     ]
         |> batch
 
@@ -192,7 +222,6 @@ btns =
 btn : Style
 btn =
     [ padding2 Sp.space1 Sp.space2
-    , marginRight Sp.space4
     , cursor pointer
     , fontWeight bold
     , backgroundColor Cl.blue500
@@ -201,6 +230,7 @@ btn =
     , fontFamily inherit
     , fontSize inherit
     , transitionBg
+    , zIndex <| int 20
     , hover [ backgroundColor Cl.blue600 ]
     ]
         |> batch

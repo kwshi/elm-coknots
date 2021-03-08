@@ -17,6 +17,7 @@ type alias Error =
     , index : Int
     , char : Int
     , err : BadWaypoint
+    , len : Int
     }
 
 
@@ -156,6 +157,7 @@ gaussCode =
                             , pos = pos
                             , char = char
                             , err = err
+                            , len = List.length run
                             }
                         )
             )

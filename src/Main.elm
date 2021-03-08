@@ -158,33 +158,43 @@ viewBody model =
                             )
                             Preset.all
                     )
-                , Ht.textarea
-                    [ At.id "gauss"
-                    , At.css [ Style.input ]
-                    , At.rows 1
-                    , Ev.onBlur (Selection Nothing)
-                    , At.placeholder "Enter a Gauss code (e.g. `1o+ 1u+`)..."
-                    ]
-                    []
-                , Ht.div
-                    [ At.css [ Style.carets ] ]
-                    (viewErrCarets model parseErrs)
-                , Ht.dl
-                    [ At.css [ Style.errs ] ]
-                    (viewErrMsgs model parseErrs)
-                , Ht.div
-                    [ At.css [ Style.btns ] ]
+                , Ht.div [ At.css [ Style.editor ] ]
                     [ Ht.button
                         [ At.css [ Style.btn ]
                         , Ev.onClick RotLeft
                         ]
                         [ Ht.text <| Esc.unescape "&#x21b6;" ]
+                    , Ht.div [ At.css [ Style.inputWrapper ] ]
+                        [ Ht.textarea
+                            [ At.id "gauss"
+                            , At.css [ Style.input ]
+                            , At.rows 1
+                            , Ev.onBlur (Selection Nothing)
+                            , At.placeholder "Enter a Gauss code (e.g. `1o+ 1u+`)..."
+                            ]
+                            []
+                        , Ht.div
+                            [ At.css
+                                [ Style.carets ]
+                            ]
+                            (viewErrCarets model parseErrs)
+                        ]
                     , Ht.button
                         [ At.css [ Style.btn ]
                         , Ev.onClick RotRight
                         ]
                         [ Ht.text <| Esc.unescape "&#x21b7;" ]
                     ]
+                , Ht.div [ At.css [ Style.msg ] ]
+                    (parseErrs
+                        |> List.filter
+                            (\e ->
+                                model.input.cursor
+                                    |> Maybe.map (\c -> e.pos <= c && c <= e.pos + e.len)
+                                    |> Maybe.withDefault False
+                            )
+                        |> List.map viewErrMsg
+                    )
                 ]
             , Ht.div [] <|
                 case layout of
@@ -212,14 +222,14 @@ viewErrCarets model =
         (\e state ->
             { els =
                 Ht.span
-                    [ At.css <| addHighlight model e [ Style.caret ]
+                    [ At.css [ Style.caret ]
                     , Ev.onMouseOver <| HoverIn e.index
                     , Ev.onMouseOut HoverOut
                     ]
-                    [ Ht.text "^^" ]
-                    :: (Ht.text <| String.repeat (e.pos + e.char - state.pos - 1) " ")
+                    [ Ht.text <| String.repeat e.len " " ]
+                    :: (Ht.text <| String.repeat (e.pos - state.pos) " ")
                     :: state.els
-            , pos = e.pos + e.char + 1
+            , pos = e.pos + e.len
             }
         )
         { pos = 0
@@ -246,87 +256,78 @@ ordinalToString n =
            )
 
 
-viewErrMsgs : Model -> List Gc.Parse.Error -> List (Ht.Html Msg)
-viewErrMsgs model =
-    List.concatMap
-        (\err ->
-            [ Ht.dt
-                [ At.css <| addHighlight model err [ Style.errLabel ]
-                , Ev.onMouseOver <| HoverIn err.index
-                , Ev.onMouseOut HoverOut
-                ]
-                [ Ht.text <| "Syntax error at " ++ ordinalToString err.index ++ " waypoint"
-                ]
-            , Ht.dd
-                [ At.css <| addHighlight model err [ Style.errMsg ]
-                , Ev.onMouseOver <| HoverIn err.index
-                , Ev.onMouseOut HoverOut
-                ]
-                (let
-                    code =
-                        Ht.code [ At.css [ Style.code ] ] << List.singleton << Ht.text
+viewErrMsg : Gc.Parse.Error -> Ht.Html Msg
+viewErrMsg err =
+    Ht.div [ At.css [ Style.err ] ]
+        [ Ht.span
+            []
+            [ Ht.text "Syntax error: " ]
+        , Ht.span
+            []
+            (let
+                code =
+                    Ht.code [ At.css [ Style.code ] ] << List.singleton << Ht.text
 
-                    codec =
-                        code << String.fromChar
-                 in
-                 case err.err of
-                    Gc.Parse.ExpectingLabel ->
-                        [ Ht.text "Expecting to see a label (e.g., "
-                        , code "5"
-                        , Ht.text " or "
-                        , code "12"
-                        , Ht.text ")"
-                        ]
+                codec =
+                    code << String.fromChar
+             in
+             case err.err of
+                Gc.Parse.ExpectingLabel ->
+                    [ Ht.text "Expecting to see a label (e.g., "
+                    , code "5"
+                    , Ht.text " or "
+                    , code "12"
+                    , Ht.text ")"
+                    ]
 
-                    Gc.Parse.ExpectingOrder c ->
-                        if c == '+' || c == '-' then
-                            [ Ht.text "Need to specify "
-                            , codec 'u'
-                            , Ht.text " (under) or "
-                            , codec 'o'
-                            , Ht.text " (over) before the sign "
-                            , codec c
-                            , Ht.text "."
-                            ]
-
-                        else
-                            [ Ht.text "Expecting to see `u` (under) or `o` (over); got `"
-                            , codec c
-                            , Ht.text " instead."
-                            ]
-
-                    Gc.Parse.ExpectingSign c ->
-                        [ Ht.text
-                            "Expecting to see a sign, i.e. "
-                        , codec '+'
-                        , Ht.text " or "
-                        , codec '-'
-                        , Ht.text "; got "
-                        , codec c
-                        , Ht.text " instead."
-                        ]
-
-                    Gc.Parse.MissingSign ->
-                        [ Ht.text "Need to specify a sign, i.e. "
-                        , codec '+'
-                        , Ht.text " or "
-                        , codec '-'
-                        , Ht.text "."
-                        ]
-
-                    Gc.Parse.MissingOrder ->
+                Gc.Parse.ExpectingOrder c ->
+                    if c == '+' || c == '-' then
                         [ Ht.text "Need to specify "
                         , codec 'u'
                         , Ht.text " (under) or "
                         , codec 'o'
-                        , Ht.text " (over)."
+                        , Ht.text " (over) before the sign "
+                        , codec c
+                        , Ht.text "."
                         ]
 
-                    Gc.Parse.ExpectingEnd ->
-                        [ Ht.text "Too many characters. Did you accidentally miss a space?" ]
-                )
-            ]
-        )
+                    else
+                        [ Ht.text "Expecting to see `u` (under) or `o` (over); got `"
+                        , codec c
+                        , Ht.text " instead."
+                        ]
+
+                Gc.Parse.ExpectingSign c ->
+                    [ Ht.text
+                        "Expecting to see a sign, i.e. "
+                    , codec '+'
+                    , Ht.text " or "
+                    , codec '-'
+                    , Ht.text "; got "
+                    , codec c
+                    , Ht.text " instead."
+                    ]
+
+                Gc.Parse.MissingSign ->
+                    [ Ht.text "Need to specify a sign, i.e. "
+                    , codec '+'
+                    , Ht.text " or "
+                    , codec '-'
+                    , Ht.text "."
+                    ]
+
+                Gc.Parse.MissingOrder ->
+                    [ Ht.text "Need to specify "
+                    , codec 'u'
+                    , Ht.text " (under) or "
+                    , codec 'o'
+                    , Ht.text " (over)."
+                    ]
+
+                Gc.Parse.ExpectingEnd ->
+                    [ Ht.text "Too many characters. Did you accidentally miss a space?" ]
+            )
+        ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
