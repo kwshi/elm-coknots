@@ -1,5 +1,6 @@
 module Render exposing (..)
 
+import Coknot.Layout as Layout
 import Coknot.Route as Route
 import Dict
 import Html.Styled as Html
@@ -17,7 +18,7 @@ strokeAttrs =
     ]
 
 
-semicirc : Route.Side -> Float -> Float -> List Path.Segment
+semicirc : Layout.Side -> Float -> Float -> List Path.Segment
 semicirc side x1 x2 =
     let
         r =
@@ -28,32 +29,32 @@ semicirc side x1 x2 =
         0
         True
         (case side of
-            Route.N ->
+            Layout.N ->
                 True
 
-            Route.S ->
+            Layout.S ->
                 False
         )
         ( x2, 0 )
     ]
 
 
-perturb : Route.Endpoint -> Float
+perturb : Layout.Endpoint -> Float
 perturb { dir, x } =
     case dir of
-        Route.W ->
+        Layout.W ->
             toFloat x - 0.2
 
-        Route.E ->
+        Layout.E ->
             toFloat x + 0.2
 
-        Route.V ->
+        Layout.V ->
             toFloat x
 
 
-arcPath : Route.Side -> Route.Endpoint -> Route.Endpoint -> List Path.Segment
+arcPath : Layout.Side -> Layout.Endpoint -> Layout.Endpoint -> List Path.Segment
 arcPath side start end =
-    if end.x - start.x == 1 && start.dir == Route.E && end.dir == Route.W then
+    if end.x - start.x == 1 && start.dir == Layout.E && end.dir == Layout.W then
         [ Path.M ( toFloat start.x + 0.1, 0 ), Path.L ( toFloat end.x - 0.1, 0 ) ]
 
     else
@@ -66,38 +67,23 @@ render { layout, width } =
         _ =
             Debug.log "width" width
     in
-    layout
+    layout.strokes
         |> Dict.values
         |> List.concat
         |> List.map
-            (\part ->
-                case part of
-                    Route.Spine x1 x2 ->
-                        Svg.path
-                            (([ Path.M ( toFloat x1, 0 )
-                              , Path.L ( toFloat x2, 0 )
-                              ]
-                                |> (Path.pathD >> At.d)
-                             )
-                                :: strokeAttrs
-                            )
-                            []
-
-                    Route.Arc side x1 x2 ->
-                        let
-                            r =
-                                toFloat (x2.x - x1.x) / 2
-                        in
-                        Svg.path
-                            ((arcPath side x1 x2
-                                |> (Path.pathD >> At.d)
-                             )
-                                :: strokeAttrs
-                            )
-                            []
+            (\{ side, start, end } ->
+                Svg.path
+                    ((At.d << Path.pathD <| arcPath side start end) :: strokeAttrs)
+                    []
             )
         |> Svg.svg
             [ At.width "100%"
-            , At.height "400"
-            , At.viewBox <| "-1 -12 " ++ String.fromInt (width + 1) ++ " 25"
+            , At.height "100%"
+            , At.viewBox <|
+                "-1 "
+                    ++ String.fromFloat -(toFloat (layout.largest + 1) / 2)
+                    ++ " "
+                    ++ String.fromInt (width + 1)
+                    ++ " "
+                    ++ String.fromInt (layout.largest + 1)
             ]

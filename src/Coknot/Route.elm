@@ -1,46 +1,17 @@
 module Coknot.Route exposing (..)
 
+import Coknot.Layout as Layout
 import Coknot.Orient as Orient
 import Dict
 import Set
 import Stact
 
 
-type Side
-    = N
-    | S
-
-
-type Dir
-    = V
-    | W
-    | E
-
-
-type alias Endpoint =
-    { dir : Dir
-    , x : Int
-    }
-
-
-type Part
-    = Arc Side Endpoint Endpoint
-    | Spine Int Int
-
-
-type alias Stroke =
-    List Part
-
-
-type alias Layout =
-    Dict.Dict Int Stroke
-
-
 type alias State =
-    { layout : Layout
+    { layout : Layout.Layout
     , first : Orient.Terminal
-    , above : Stact.Stact Seg Endpoint
-    , below : Stact.Stact Seg Endpoint
+    , above : Stact.Stact Seg Layout.Endpoint
+    , below : Stact.Stact Seg Layout.Endpoint
     , x : Int
     }
 
@@ -50,7 +21,7 @@ type alias Seg =
 
 
 type alias Success =
-    { layout : Layout
+    { layout : Layout.Layout
     , width : Int
     }
 
@@ -61,45 +32,38 @@ init first =
     , first = first
     , above = Stact.empty
     , below = Stact.empty
-    , layout = Dict.empty
+    , layout = Layout.init
     }
-
-
-initPush : a -> Maybe (List a) -> Maybe (List a)
-initPush a =
-    Maybe.withDefault [] >> (::) a >> Just
 
 
 type alias ShiftState =
     { x : Int
-    , from : Stact.Stact Seg Endpoint
-    , to : Stact.Stact Seg Endpoint
-    , layout : Layout
+    , from : Stact.Stact Seg Layout.Endpoint
+    , to : Stact.Stact Seg Layout.Endpoint
+    , layout : Layout.Layout
     }
 
 
-shift : ( Int, Side, Side ) -> ShiftState -> Maybe ShiftState
+shift : ( Int, Layout.Side, Layout.Side ) -> ShiftState -> Maybe ShiftState
 shift ( seg, fromSide, toSide ) state =
     Stact.popUntil seg
         (\s start { x, layout, to } ->
             to
-                |> Stact.pushOrPop s { x = x, dir = V }
+                |> Stact.pushOrPop s { x = x, dir = Layout.V }
                 |> (\( popped, newTo ) ->
                         { x = x + 1
                         , to = newTo
                         , layout =
-                            Dict.update s
-                                (update <| (::) <| Arc fromSide start { x = x, dir = V })
+                            Layout.addArc s
+                                { side = fromSide, start = start, end = { x = x, dir = Layout.V } }
                                 layout
                                 |> (case popped of
                                         Nothing ->
                                             identity
 
                                         Just otherStart ->
-                                            Dict.update s <|
-                                                update <|
-                                                    (::) <|
-                                                        Arc toSide otherStart { x = x, dir = V }
+                                            Layout.addArc s
+                                                { side = toSide, start = otherStart, end = { x = x, dir = Layout.V } }
                                    )
                         }
                    )
@@ -116,10 +80,8 @@ shift ( seg, fromSide, toSide ) state =
                     , to = to
                     , from = from
                     , layout =
-                        Dict.update seg
-                            (update <|
-                                (::) (Arc fromSide start { x = x, dir = W })
-                            )
+                        Layout.addArc seg
+                            { side = fromSide, start = start, end = { x = x, dir = Layout.W } }
                             layout
                 }
             )
@@ -133,7 +95,7 @@ west seg state =
         , to = state.below
         , layout = state.layout
         }
-            |> shift ( seg, N, S )
+            |> shift ( seg, Layout.N, Layout.S )
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
@@ -150,7 +112,7 @@ west seg state =
         , to = state.above
         , layout = state.layout
         }
-            |> shift ( seg, S, N )
+            |> shift ( seg, Layout.S, Layout.N )
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
@@ -164,8 +126,8 @@ west seg state =
     else if state.first.w == seg then
         -- TODO handle first better
         { state
-            | above = Stact.push seg { x = state.x, dir = W } state.above
-            , below = Stact.push seg { x = state.x, dir = W } state.below
+            | above = Stact.push seg { x = state.x, dir = Layout.W } state.above
+            , below = Stact.push seg { x = state.x, dir = Layout.W } state.below
             , layout = state.layout
         }
             |> Just
@@ -178,7 +140,7 @@ north : Int -> State -> State
 north seg state =
     { seg = seg
     , stact = state.above
-    , side = N
+    , side = Layout.N
     , layout = state.layout
     , x = state.x
     }
@@ -197,7 +159,7 @@ south : Int -> State -> State
 south seg state =
     { seg = seg
     , stact = state.below
-    , side = S
+    , side = Layout.S
     , x = state.x
     , layout = state.layout
     }
@@ -209,22 +171,22 @@ south seg state =
 
 vert :
     { seg : Int
-    , stact : Stact.Stact Seg Endpoint
-    , side : Side
+    , stact : Stact.Stact Seg Layout.Endpoint
+    , side : Layout.Side
     , x : Int
-    , layout : Layout
+    , layout : Layout.Layout
     }
     ->
-        { stact : Stact.Stact Seg Endpoint
-        , layout : Layout
+        { stact : Stact.Stact Seg Layout.Endpoint
+        , layout : Layout.Layout
         }
 vert { seg, stact, side, x, layout } =
-    Stact.pushOrPop seg { x = x, dir = V } stact
+    Stact.pushOrPop seg { x = x, dir = Layout.V } stact
         |> (\( popped, newStact ) ->
                 { stact = newStact
                 , layout =
                     (Maybe.map
-                        (\start -> Dict.update seg (update <| (::) <| Arc side start { x = x, dir = V }))
+                        (\start -> Layout.addArc seg { side = side, start = start, end = { x = x, dir = Layout.V } })
                         popped
                         |> Maybe.withDefault identity
                     )
@@ -240,23 +202,14 @@ update f =
 
 east : Int -> State -> Maybe State
 east seg state =
-    --let
-    --    matchTop st =
-    --        Stact.peek st
-    --            |> Maybe.map Tuple.first
-    --            |> (==) (Just seg)
-    --in
-    --if matchTop state.above then
-    --else if matchTop state.below then
-    --else
     Stact.pop state.above
         |> Maybe.andThen
             (\( ( s, start ), above ) ->
                 if s == seg then
                     { state
                         | layout =
-                            Dict.update seg
-                                (update <| (::) <| Arc N start { x = state.x - 1, dir = E })
+                            Layout.addArc seg
+                                { side = Layout.N, start = start, end = { x = state.x - 1, dir = Layout.E } }
                                 state.layout
                         , x = state.x
                         , above = above
@@ -273,10 +226,8 @@ east seg state =
                         if s == seg then
                             { state
                                 | layout =
-                                    Dict.update seg
-                                        (update <|
-                                            (::) (Arc S start { x = state.x - 1, dir = E })
-                                        )
+                                    Layout.addArc seg
+                                        { side = Layout.S, start = start, end = { x = state.x - 1, dir = Layout.E } }
                                         state.layout
                                 , x = state.x
                                 , below = below
@@ -289,7 +240,7 @@ east seg state =
                 |> Maybe.withDefault
                     { state
                         | above =
-                            Stact.push seg { x = state.x - 1, dir = E } state.above
+                            Stact.push seg { x = state.x - 1, dir = Layout.E } state.above
                         , x = state.x
                     }
             )
@@ -299,8 +250,7 @@ east seg state =
 next : Orient.Terminal -> Maybe State -> Maybe State
 next terminal =
     Maybe.andThen (west terminal.w)
-        >> Maybe.map (north terminal.n)
-        >> Maybe.map (south terminal.s)
+        >> Maybe.map (north terminal.n >> south terminal.s)
         >> Maybe.map incX
         >> Maybe.andThen (east terminal.e)
 
@@ -312,12 +262,17 @@ end state =
             if s1 == s2 then
                 { state
                     | layout =
-                        Dict.update s1
-                            (Maybe.withDefault []
-                                >> (::) (Arc N x1 { x = state.x, dir = V })
-                                >> (::) (Arc S x2 { x = state.x, dir = V })
-                                >> Just
-                            )
+                        Layout.addArcs
+                            s1
+                            [ { side = Layout.N
+                              , start = x1
+                              , end = { x = state.x, dir = Layout.V }
+                              }
+                            , { side = Layout.S
+                              , start = x2
+                              , end = { x = state.x, dir = Layout.V }
+                              }
+                            ]
                             state.layout
                     , above = above
                     , below = below
@@ -349,7 +304,7 @@ build terminals =
                 |> Maybe.map (end >> Debug.log "after end")
                 |> Maybe.map
                     (\st ->
-                        { layout = Dict.map (always List.reverse) st.layout
+                        { layout = Layout.finalize st.layout
                         , width = st.x
                         }
                     )
