@@ -157,7 +157,7 @@ viewBody model =
                         |> List.map viewErrMsg
                     )
                 ]
-            , Ht.div [] <|
+            , Ht.div [ At.css [ Style.diagramWrapper ] ] <|
                 case layout of
                     Nothing ->
                         []

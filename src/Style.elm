@@ -18,8 +18,9 @@ root =
     , position absolute
     , top Sp.space0
     , left Sp.space0
-    , bottom Sp.space0
     , right Sp.space0
+    , bottom Sp.space0
+    , overflowY scroll
     , backgroundColor Cl.gray100
     , color Cl.gray900
     , Tx.textSM
@@ -237,5 +238,13 @@ btn =
     , transitionBg
     , zIndex <| int 20
     , hover [ backgroundColor Cl.blue600 ]
+    ]
+        |> batch
+
+
+diagramWrapper : Style
+diagramWrapper =
+    [ height Sp.sizeMD
+    , flexShrink <| num 1
     ]
         |> batch
