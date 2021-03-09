@@ -109,7 +109,12 @@ inputWrapper =
 
 input : Style
 input =
-    [ border3 (px 1) solid Cl.blue300
+    [ borderTop <| px 1
+    , borderBottom <| px 1
+    , borderLeft Sp.space0
+    , borderRight Sp.space0
+    , borderColor Cl.blue400
+    , borderStyle solid
     , position relative
     , zIndex <| int 10
     , height Sp.space4

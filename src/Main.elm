@@ -14,6 +14,7 @@ import Html.Styled.Attributes as At
 import Html.Styled.Events as Ev
 import Json.Decode as Jd
 import Json.Encode as Je
+import Model
 import Parser.Advanced as Parser
 import Preset
 import Render
@@ -22,43 +23,22 @@ import Svg.Styled as Svg
 import Url
 
 
-type alias Model =
-    { nav : Nav.Key
-    , input :
-        { cursor : Maybe Int
-        , content : String
-        }
-    , hoverErr : Maybe Int
-    }
-
-
-type Msg
-    = Nop
-    | Input ( Maybe Int, String )
-    | Selection (Maybe ( Int, Int ))
-    | SetInput String
-    | HoverIn Int
-    | HoverOut
-    | RotLeft
-    | RotRight
-
-
-main : Program () Model Msg
+main : Program () Model.Model Model.Msg
 main =
     Browser.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , onUrlRequest = \_ -> Nop
-        , onUrlChange = \_ -> Nop
+        , onUrlRequest = \_ -> Model.Nop
+        , onUrlChange = \_ -> Model.Nop
         }
 
 
 port setInput : String -> Cmd msg
 
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init : () -> Url.Url -> Nav.Key -> ( Model.Model, Cmd Model.Msg )
 init () url nav =
     ( { nav = nav
       , input =
@@ -78,41 +58,22 @@ port input : (( Maybe Int, String ) -> msg) -> Sub msg
 port selection : (Maybe ( Int, Int ) -> msg) -> Sub msg
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : Model.Model -> Sub Model.Msg
 subscriptions model =
-    [ input Input
-    , selection Selection
+    [ input Model.Input
+    , selection Model.Selection
     ]
         |> Sub.batch
 
 
-view : Model -> Browser.Document Msg
+view : Model.Model -> Browser.Document Model.Msg
 view model =
     { title = "hi"
     , body = viewBody model |> List.map Ht.toUnstyled
     }
 
 
-addHighlight : Model -> Gc.Parse.Error -> (List Css.Style -> List Css.Style)
-addHighlight model err =
-    if
-        (model.hoverErr == Just err.index)
-            || (model.input.cursor
-                    |> Maybe.map
-                        (\c ->
-                            (err.pos + err.char - 1 <= c)
-                                && (c <= err.pos + err.char + 1)
-                        )
-                    |> Maybe.withDefault False
-               )
-    then
-        (::) Style.highlight
-
-    else
-        identity
-
-
-viewBody : Model -> List (Ht.Html Msg)
+viewBody : Model.Model -> List (Ht.Html Model.Msg)
 viewBody model =
     let
         gc =
@@ -152,7 +113,7 @@ viewBody model =
                             (\ex ->
                                 Ht.button
                                     [ At.css [ Style.example ]
-                                    , Ev.onClick <| SetInput ex.code
+                                    , Ev.onClick <| Model.SetInput ex.code
                                     ]
                                     ex.name
                             )
@@ -161,7 +122,7 @@ viewBody model =
                 , Ht.div [ At.css [ Style.editor ] ]
                     [ Ht.button
                         [ At.css [ Style.btn ]
-                        , Ev.onClick RotLeft
+                        , Ev.onClick Model.RotLeft
                         ]
                         [ Ht.text <| Esc.unescape "&#x21b6;" ]
                     , Ht.div [ At.css [ Style.inputWrapper ] ]
@@ -169,7 +130,7 @@ viewBody model =
                             [ At.id "gauss"
                             , At.css [ Style.input ]
                             , At.rows 1
-                            , Ev.onBlur (Selection Nothing)
+                            , Ev.onBlur (Model.Selection Nothing)
                             , At.placeholder "Enter a Gauss code (e.g. `1o+ 1u+`)..."
                             ]
                             []
@@ -181,7 +142,7 @@ viewBody model =
                         ]
                     , Ht.button
                         [ At.css [ Style.btn ]
-                        , Ev.onClick RotRight
+                        , Ev.onClick Model.RotRight
                         ]
                         [ Ht.text <| Esc.unescape "&#x21b7;" ]
                     ]
@@ -203,28 +164,20 @@ viewBody model =
 
                     Just l ->
                         [ Render.render l ]
-            , Ht.br [] []
-            , Ht.code [] [ Ht.text <| Debug.toString gc ]
-            , Ht.br [] []
-            , Ht.code [] [ Ht.text <| Debug.toString errs ]
-            , Ht.br [] []
-            , Ht.code [] [ Ht.text <| Debug.toString terms ]
-            , Ht.br [] []
-            , Ht.code [] [ Ht.text <| Debug.toString layout ]
             ]
         ]
     ]
 
 
-viewErrCarets : Model -> List Gc.Parse.Error -> List (Ht.Html Msg)
+viewErrCarets : Model.Model -> List Gc.Parse.Error -> List (Ht.Html Model.Msg)
 viewErrCarets model =
     List.foldl
         (\e state ->
             { els =
                 Ht.span
                     [ At.css [ Style.caret ]
-                    , Ev.onMouseOver <| HoverIn e.index
-                    , Ev.onMouseOut HoverOut
+                    , Ev.onMouseOver <| Model.HoverIn e.index
+                    , Ev.onMouseOut Model.HoverOut
                     ]
                     [ Ht.text <| String.repeat e.len " " ]
                     :: (Ht.text <| String.repeat (e.pos - state.pos) " ")
@@ -256,7 +209,7 @@ ordinalToString n =
            )
 
 
-viewErrMsg : Gc.Parse.Error -> Ht.Html Msg
+viewErrMsg : Gc.Parse.Error -> Ht.Html Model.Msg
 viewErrMsg err =
     Ht.div [ At.css [ Style.err ] ]
         [ Ht.span
@@ -330,23 +283,23 @@ viewErrMsg err =
         ]
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Model.Msg -> Model.Model -> ( Model.Model, Cmd Model.Msg )
 update msg model =
     case msg of
-        Nop ->
+        Model.Nop ->
             ( model, Cmd.none )
 
-        Input ( i, content ) ->
+        Model.Input ( i, content ) ->
             ( { model
                 | input = { cursor = i, content = content }
               }
             , Cmd.none
             )
 
-        SetInput s ->
+        Model.SetInput s ->
             ( model, setInput s )
 
-        Selection sel ->
+        Model.Selection sel ->
             model.input
                 |> (\data ->
                         ( { model
@@ -357,16 +310,16 @@ update msg model =
                         )
                    )
 
-        HoverIn i ->
+        Model.HoverIn i ->
             ( { model | hoverErr = Just i }, Cmd.none )
 
-        HoverOut ->
+        Model.HoverOut ->
             ( { model | hoverErr = Nothing }, Cmd.none )
 
-        RotLeft ->
+        Model.RotLeft ->
             ( model, setInput (parts model.input.content |> rotLeft |> String.join " ") )
 
-        RotRight ->
+        Model.RotRight ->
             ( model, setInput (parts model.input.content |> rotRight |> String.join " ") )
 
 

@@ -17,6 +17,49 @@ strokeAttrs =
     ]
 
 
+semicirc : Route.Side -> Float -> Float -> List Path.Segment
+semicirc side x1 x2 =
+    let
+        r =
+            (x2 - x1) / 2
+    in
+    [ Path.M ( x1, 0 )
+    , Path.A ( r, r )
+        0
+        True
+        (case side of
+            Route.N ->
+                True
+
+            Route.S ->
+                False
+        )
+        ( x2, 0 )
+    ]
+
+
+perturb : Route.Endpoint -> Float
+perturb { dir, x } =
+    case dir of
+        Route.W ->
+            toFloat x - 0.2
+
+        Route.E ->
+            toFloat x + 0.2
+
+        Route.V ->
+            toFloat x
+
+
+arcPath : Route.Side -> Route.Endpoint -> Route.Endpoint -> List Path.Segment
+arcPath side start end =
+    if end.x - start.x == 1 && start.dir == Route.E && end.dir == Route.W then
+        [ Path.M ( toFloat start.x + 0.1, 0 ), Path.L ( toFloat end.x - 0.1, 0 ) ]
+
+    else
+        semicirc side (perturb start) (perturb end)
+
+
 render : Route.Success -> Html.Html msg
 render { layout, width } =
     let
@@ -43,22 +86,10 @@ render { layout, width } =
                     Route.Arc side x1 x2 ->
                         let
                             r =
-                                toFloat (x2 - x1) / 2
+                                toFloat (x2.x - x1.x) / 2
                         in
                         Svg.path
-                            (([ Path.M ( toFloat x1, 0 )
-                              , Path.A ( r, r )
-                                    0
-                                    True
-                                    (case side of
-                                        Route.N ->
-                                            True
-
-                                        Route.S ->
-                                            False
-                                    )
-                                    ( toFloat x2, 0 )
-                              ]
+                            ((arcPath side x1 x2
                                 |> (Path.pathD >> At.d)
                              )
                                 :: strokeAttrs
@@ -66,7 +97,7 @@ render { layout, width } =
                             []
             )
         |> Svg.svg
-            [ At.width "800"
+            [ At.width "100%"
             , At.height "400"
             , At.viewBox <| "-1 -12 " ++ String.fromInt (width + 1) ++ " 25"
             ]
