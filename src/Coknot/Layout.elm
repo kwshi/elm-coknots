@@ -1,5 +1,6 @@
 module Coknot.Layout exposing (..)
 
+import Coknot.Orient as Orient
 import Dict
 import Stact
 
@@ -31,6 +32,7 @@ type alias Stroke =
 
 type alias Layout =
     { strokes : Dict.Dict Int Stroke
+    , crossings : Dict.Dict Int Orient.Terminal
     , largest : Int
     }
 
@@ -38,19 +40,21 @@ type alias Layout =
 init : Layout
 init =
     { strokes = Dict.empty
+    , crossings = Dict.empty
     , largest = 0
     }
 
 
 addArcs : Int -> List Arc -> Layout -> Layout
 addArcs seg arcs layout =
-    { strokes =
-        Dict.update
-            seg
-            (Maybe.withDefault [] >> (++) arcs >> Just)
-            layout.strokes
-    , largest =
-        List.foldl (\arc m -> max m (arc.end.x - arc.start.x)) layout.largest arcs
+    { layout
+        | strokes =
+            Dict.update
+                seg
+                (Maybe.withDefault [] >> (++) arcs >> Just)
+                layout.strokes
+        , largest =
+            List.foldl (\arc m -> max m (arc.end.x - arc.start.x)) layout.largest arcs
     }
 
 

@@ -55,7 +55,10 @@ shift ( seg, fromSide, toSide ) state =
                         , to = newTo
                         , layout =
                             Layout.addArc s
-                                { side = fromSide, start = start, end = { x = x, dir = Layout.V } }
+                                { side = fromSide
+                                , start = start
+                                , end = { x = x, dir = Layout.V }
+                                }
                                 layout
                                 |> (case popped of
                                         Nothing ->
@@ -63,7 +66,10 @@ shift ( seg, fromSide, toSide ) state =
 
                                         Just otherStart ->
                                             Layout.addArc s
-                                                { side = toSide, start = otherStart, end = { x = x, dir = Layout.V } }
+                                                { side = toSide
+                                                , start = otherStart
+                                                , end = { x = x, dir = Layout.V }
+                                                }
                                    )
                         }
                    )
@@ -247,9 +253,28 @@ east seg state =
         |> Just
 
 
+crossing : Orient.Terminal -> State -> State
+crossing term st =
+    let
+        { layout } =
+            st
+    in
+    { st
+        | layout =
+            { layout
+                | crossings =
+                    Dict.insert
+                        st.x
+                        term
+                        layout.crossings
+            }
+    }
+
+
 next : Orient.Terminal -> Maybe State -> Maybe State
 next terminal =
     Maybe.andThen (west terminal.w)
+        >> Maybe.map (crossing terminal)
         >> Maybe.map (north terminal.n >> south terminal.s)
         >> Maybe.map incX
         >> Maybe.andThen (east terminal.e)
