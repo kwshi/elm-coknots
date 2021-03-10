@@ -3,6 +3,7 @@ module Render exposing (..)
 import Coknot.Layout as Layout
 import Coknot.Orient as Orient
 import Coknot.Route as Route
+import Css
 import Dict
 import Html.Styled as Html
 import Html.Styled.Attributes as Hat
@@ -84,22 +85,29 @@ perturb { dir, x } =
             )
 
 
-arcPath : Layout.Side -> Layout.Endpoint -> Layout.Endpoint -> List Path.Segment
-arcPath side start end =
-    --if
-    --    (end.x - start.x == 1)
-    --        && (start.dir == Layout.E)
-    --        && (end.dir == Layout.W)
-    --then
-    --    [ Path.M ( toFloat start.x - 1, 0 )
-    --    , Path.L ( toFloat end.x + 1, 0 )
-    --    ]
-    --else
-    semicirc side (perturb start) (perturb end)
+arcPath :
+    Bool
+    -> Layout.Side
+    -> Layout.Endpoint
+    -> Layout.Endpoint
+    -> List Path.Segment
+arcPath flat side start end =
+    if
+        flat
+            && (end.x - start.x == 1)
+            && (start.dir == Layout.E)
+            && (end.dir == Layout.W)
+    then
+        [ Path.M ( toFloat start.x - 1, 0 )
+        , Path.L ( toFloat end.x + 1, 0 )
+        ]
+
+    else
+        semicirc side (perturb start) (perturb end)
 
 
-render : Route.Success -> Html.Html msg
-render { layout, width } =
+render : Bool -> Route.Success -> Html.Html msg
+render flat { layout, width } =
     let
         _ =
             Debug.log "width" width
@@ -125,7 +133,9 @@ render { layout, width } =
                 |> List.map
                     (\{ side, start, end } ->
                         Svg.path
-                            ((At.d << Path.pathD <| arcPath side start end) :: strokeAttrs)
+                            ([ At.d <| Path.pathD <| arcPath flat side start end ]
+                                ++ strokeAttrs
+                            )
                             []
                     )
             )

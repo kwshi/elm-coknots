@@ -28,14 +28,11 @@ main =
     Browser.application
         { init = init
         , view = view
-        , update = update
+        , update = Model.update
         , subscriptions = subscriptions
         , onUrlRequest = \_ -> Model.Nop
         , onUrlChange = \_ -> Model.Nop
         }
-
-
-port setInput : String -> Cmd msg
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model.Model, Cmd Model.Msg )
@@ -46,8 +43,9 @@ init () url nav =
             , content = ""
             }
       , hoverErr = Nothing
+      , flat = False
       }
-    , setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
+    , Model.setInput "1o+ 2u+ 3o+ 1u+ 2o+ 3u+"
       --, setInput "1o+ 2u+ 3+ 1 2o+ 3u"
     )
 
@@ -156,6 +154,14 @@ viewBody model =
                             )
                         |> List.map viewErrMsg
                     )
+                , Ht.div []
+                    [ Ht.input
+                        [ At.type_ "checkbox"
+                        , At.checked model.flat
+                        , Ev.onClick Model.ToggleFlat
+                        ]
+                        []
+                    ]
                 ]
             , Ht.div [ At.css [ Style.diagramWrapper ] ] <|
                 case layout of
@@ -163,7 +169,7 @@ viewBody model =
                         []
 
                     Just l ->
-                        [ Render.render l ]
+                        [ Render.render model.flat l ]
             ]
         ]
     ]
@@ -281,65 +287,3 @@ viewErrMsg err =
                     [ Ht.text "Too many characters. Did you accidentally miss a space?" ]
             )
         ]
-
-
-update : Model.Msg -> Model.Model -> ( Model.Model, Cmd Model.Msg )
-update msg model =
-    case msg of
-        Model.Nop ->
-            ( model, Cmd.none )
-
-        Model.Input ( i, content ) ->
-            ( { model
-                | input = { cursor = i, content = content }
-              }
-            , Cmd.none
-            )
-
-        Model.SetInput s ->
-            ( model, setInput s )
-
-        Model.Selection sel ->
-            model.input
-                |> (\data ->
-                        ( { model
-                            | input =
-                                { data | cursor = Maybe.map Tuple.first sel }
-                          }
-                        , Cmd.none
-                        )
-                   )
-
-        Model.HoverIn i ->
-            ( { model | hoverErr = Just i }, Cmd.none )
-
-        Model.HoverOut ->
-            ( { model | hoverErr = Nothing }, Cmd.none )
-
-        Model.RotLeft ->
-            ( model, setInput (parts model.input.content |> rotLeft |> String.join " ") )
-
-        Model.RotRight ->
-            ( model, setInput (parts model.input.content |> rotRight |> String.join " ") )
-
-
-parts : String -> List String
-parts =
-    String.toList
-        >> Gc.Parse.stripSplit ((==) ' ')
-        >> List.map (.run >> String.fromList)
-
-
-rotLeft : List a -> List a
-rotLeft l =
-    case l of
-        [] ->
-            []
-
-        a :: rest ->
-            rest ++ [ a ]
-
-
-rotRight : List a -> List a
-rotRight =
-    List.reverse >> rotLeft >> List.reverse
