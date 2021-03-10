@@ -105,7 +105,7 @@ west seg state =
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
-                        | x = x
+                        | x = x + 1
                         , above = from
                         , below = to
                         , layout = layout
@@ -122,7 +122,7 @@ west seg state =
             |> Maybe.map
                 (\{ x, from, to, layout } ->
                     { state
-                        | x = x
+                        | x = x + 1
                         , below = from
                         , above = to
                         , layout = layout
@@ -132,9 +132,17 @@ west seg state =
     else if state.first.w == seg then
         -- TODO handle first better
         { state
-            | above = Stact.push seg { x = state.x, dir = Layout.W } state.above
-            , below = Stact.push seg { x = state.x, dir = Layout.W } state.below
+            | above =
+                Stact.push seg
+                    { x = state.x, dir = Layout.W }
+                    state.above
+            , below =
+                Stact.push
+                    seg
+                    { x = state.x, dir = Layout.W }
+                    state.below
             , layout = state.layout
+            , x = state.x + 1
         }
             |> Just
 
@@ -215,9 +223,12 @@ east seg state =
                     { state
                         | layout =
                             Layout.addArc seg
-                                { side = Layout.N, start = start, end = { x = state.x - 1, dir = Layout.E } }
+                                { side = Layout.N
+                                , start = start
+                                , end = { x = state.x, dir = Layout.E }
+                                }
                                 state.layout
-                        , x = state.x
+                        , x = state.x + 1
                         , above = above
                     }
                         |> Just
@@ -233,9 +244,12 @@ east seg state =
                             { state
                                 | layout =
                                     Layout.addArc seg
-                                        { side = Layout.S, start = start, end = { x = state.x - 1, dir = Layout.E } }
+                                        { side = Layout.S
+                                        , start = start
+                                        , end = { x = state.x, dir = Layout.E }
+                                        }
                                         state.layout
-                                , x = state.x
+                                , x = state.x + 1
                                 , below = below
                             }
                                 |> Just
@@ -246,8 +260,10 @@ east seg state =
                 |> Maybe.withDefault
                     { state
                         | above =
-                            Stact.push seg { x = state.x - 1, dir = Layout.E } state.above
-                        , x = state.x
+                            Stact.push seg
+                                { x = state.x, dir = Layout.E }
+                                state.above
+                        , x = state.x + 1
                     }
             )
         |> Just

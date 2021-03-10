@@ -19,6 +19,11 @@ strokeAttrs =
     ]
 
 
+padSize : Float
+padSize =
+    0.5
+
+
 semicirc :
     Layout.Side
     -> ( Float, List Path.Segment )
@@ -32,10 +37,10 @@ semicirc side ( x1, p1 ) ( x2, p2 ) =
         offset =
             case side of
                 Layout.N ->
-                    -0.125
+                    -padSize
 
                 Layout.S ->
-                    0.125
+                    padSize
     in
     p1
         ++ [ Path.M ( x1, 0 )
@@ -60,16 +65,16 @@ perturb : Layout.Endpoint -> ( Float, List Path.Segment )
 perturb { dir, x } =
     case dir of
         Layout.W ->
-            ( toFloat x - 0.25
+            ( toFloat x
             , [ Path.M ( toFloat x, 0 )
-              , Path.L ( toFloat x - 0.25, 0 )
+              , Path.L ( toFloat x + 1, 0 )
               ]
             )
 
         Layout.E ->
-            ( toFloat x + 0.25
+            ( toFloat x
             , [ Path.M ( toFloat x, 0 )
-              , Path.L ( toFloat x + 0.25, 0 )
+              , Path.L ( toFloat x - 1, 0 )
               ]
             )
 
@@ -81,13 +86,16 @@ perturb { dir, x } =
 
 arcPath : Layout.Side -> Layout.Endpoint -> Layout.Endpoint -> List Path.Segment
 arcPath side start end =
-    if end.x - start.x == 1 && start.dir == Layout.E && end.dir == Layout.W then
-        [ Path.M ( toFloat start.x, 0 )
-        , Path.L ( toFloat end.x, 0 )
-        ]
-
-    else
-        semicirc side (perturb start) (perturb end)
+    --if
+    --    (end.x - start.x == 1)
+    --        && (start.dir == Layout.E)
+    --        && (end.dir == Layout.W)
+    --then
+    --    [ Path.M ( toFloat start.x - 1, 0 )
+    --    , Path.L ( toFloat end.x + 1, 0 )
+    --    ]
+    --else
+    semicirc side (perturb start) (perturb end)
 
 
 render : Route.Success -> Html.Html msg
@@ -95,17 +103,20 @@ render { layout, width } =
     let
         _ =
             Debug.log "width" width
+
+        height =
+            toFloat layout.largest + 3 * padSize
     in
     Svg.svg
         [ At.width "100%"
         , At.height "100%"
         , At.viewBox <|
             "-1 "
-                ++ String.fromFloat -(toFloat (layout.largest + 1) / 2)
+                ++ String.fromFloat -(height / 2)
                 ++ " "
                 ++ String.fromInt (width + 1)
                 ++ " "
-                ++ String.fromInt (layout.largest + 1)
+                ++ String.fromFloat height
         ]
         [ Svg.g []
             (layout.strokes
@@ -126,15 +137,15 @@ render { layout, width } =
                         [ Svg.circle
                             [ At.cx <| String.fromInt x
                             , At.cy "0"
-                            , At.r "0.125"
+                            , At.r <| String.fromFloat padSize
                             , At.fill "#f7fafc"
                             ]
                             []
                         , case t.dominant of
                             Orient.H ->
                                 Svg.line
-                                    ([ At.x1 <| String.fromFloat (toFloat x - 0.125)
-                                     , At.x2 <| String.fromFloat (toFloat x + 0.125)
+                                    ([ At.x1 <| String.fromFloat (toFloat x - padSize)
+                                     , At.x2 <| String.fromFloat (toFloat x + padSize)
                                      , At.y1 "0"
                                      , At.y2 "0"
                                      ]
@@ -146,8 +157,8 @@ render { layout, width } =
                                 Svg.line
                                     ([ At.x1 <| String.fromInt x
                                      , At.x2 <| String.fromInt x
-                                     , At.y1 "-0.125"
-                                     , At.y2 ".125"
+                                     , At.y1 <| String.fromFloat -padSize
+                                     , At.y2 <| String.fromFloat padSize
                                      ]
                                         ++ strokeAttrs
                                     )
