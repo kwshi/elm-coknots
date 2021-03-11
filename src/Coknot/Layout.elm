@@ -2,6 +2,7 @@ module Coknot.Layout exposing (..)
 
 import Coknot.Orient as Orient
 import Dict
+import Lens
 import Stact
 
 
@@ -37,6 +38,18 @@ type alias Layout =
     }
 
 
+lens :
+    { strokes : Lens.Prop Layout (Dict.Dict Int Stroke)
+    , crossings : Lens.Prop Layout (Dict.Dict Int Orient.Terminal)
+    , largest : Lens.Prop Layout Int
+    }
+lens =
+    { strokes = Lens.prop .strokes <| \a r -> { r | strokes = a }
+    , crossings = Lens.prop .crossings <| \a r -> { r | crossings = a }
+    , largest = Lens.prop .largest <| \a r -> { r | largest = a }
+    }
+
+
 init : Layout
 init =
     { strokes = Dict.empty
@@ -45,17 +58,21 @@ init =
     }
 
 
+maximum : (a -> Int) -> Int -> List a -> Int
+maximum f =
+    List.foldl <| max << f
+
+
+arcSize : Arc -> Int
+arcSize { end, start } =
+    end.x - start.x
+
+
 addArcs : Int -> List Arc -> Layout -> Layout
-addArcs seg arcs layout =
-    { layout
-        | strokes =
-            Dict.update
-                seg
-                (Maybe.withDefault [] >> (++) arcs >> Just)
-                layout.strokes
-        , largest =
-            List.foldl (\arc m -> max m (arc.end.x - arc.start.x)) layout.largest arcs
-    }
+addArcs seg arcs =
+    lens.strokes.edit
+        (Dict.update seg (Maybe.withDefault [] >> (++) arcs >> Just))
+        >> lens.largest.edit (\l -> maximum arcSize l arcs)
 
 
 addArc : Int -> Arc -> Layout -> Layout
@@ -64,7 +81,10 @@ addArc seg =
 
 
 finalize : Layout -> Layout
-finalize layout =
-    { layout
-        | strokes = Dict.map (always List.reverse) layout.strokes
-    }
+finalize =
+    lens.strokes.edit <| Dict.map <| always List.reverse
+
+
+addCrossing : Int -> Orient.Terminal -> Layout -> Layout
+addCrossing x t =
+    lens.crossings.edit <| Dict.insert x t

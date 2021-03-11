@@ -1,4 +1,4 @@
-port module Main exposing (..)
+module Main exposing (..)
 
 import Browser
 import Browser.Navigation as Nav
@@ -29,7 +29,7 @@ main =
         { init = init
         , view = view
         , update = Model.update
-        , subscriptions = subscriptions
+        , subscriptions = Model.subscriptions
         , onUrlRequest = \_ -> Model.Nop
         , onUrlChange = \_ -> Model.Nop
         }
@@ -50,25 +50,35 @@ init () url nav =
     )
 
 
-port input : (( Maybe Int, String ) -> msg) -> Sub msg
-
-
-port selection : (Maybe ( Int, Int ) -> msg) -> Sub msg
-
-
-subscriptions : Model.Model -> Sub Model.Msg
-subscriptions model =
-    [ input Model.Input
-    , selection Model.Selection
-    ]
-        |> Sub.batch
-
-
 view : Model.Model -> Browser.Document Model.Msg
 view model =
-    { title = "hi"
+    { title = "Knots"
     , body = viewBody model |> List.map Ht.toUnstyled
     }
+
+
+onInputKey : Jd.Decoder ( Model.Msg, Bool )
+onInputKey =
+    Jd.map2
+        (\key shift ->
+            case Debug.log "key" key of
+                "." ->
+                    ( Model.InputSkip Model.Next, True )
+
+                "," ->
+                    ( Model.InputSkip Model.Prev, True )
+
+                "r" ->
+                    ( Model.RotRight, True )
+
+                "R" ->
+                    ( Model.RotLeft, True )
+
+                _ ->
+                    ( Model.Nop, False )
+        )
+        (Jd.field "key" Jd.string)
+        (Jd.field "shiftKey" Jd.bool)
 
 
 viewBody : Model.Model -> List (Ht.Html Model.Msg)
@@ -130,6 +140,7 @@ viewBody model =
                             , At.rows 1
                             , Ev.onBlur (Model.Selection Nothing)
                             , At.placeholder "Enter a Gauss code (e.g. `1o+ 1u+`)..."
+                            , Ev.preventDefaultOn "keydown" onInputKey
                             ]
                             []
                         , Ht.div

@@ -54,6 +54,41 @@ pop (Stact { stack, dict }) =
                 )
 
 
+popBoth :
+    ( Stact comparable a, Stact comparable a )
+    ->
+        Maybe
+            ( ( ( comparable, a ), ( comparable, a ) )
+            , ( Stact comparable a, Stact comparable a )
+            )
+popBoth ( a, b ) =
+    case ( pop a, pop b ) of
+        ( Just ( ( k1, v1 ), s1 ), Just ( ( k2, v2 ), s2 ) ) ->
+            Just ( ( ( k1, v1 ), ( k2, v2 ) ), ( s1, s2 ) )
+
+        _ ->
+            Nothing
+
+
+popBothEqual :
+    ( Stact comparable a, Stact comparable a )
+    ->
+        Maybe
+            ( ( comparable, ( a, a ) )
+            , ( Stact comparable a, Stact comparable a )
+            )
+popBothEqual =
+    Maybe.andThen
+        (\( ( ( k1, v1 ), ( k2, v2 ) ), ( s1, s2 ) ) ->
+            if k1 == k2 then
+                Just ( ( k1, ( v1, v2 ) ), ( s1, s2 ) )
+
+            else
+                Nothing
+        )
+        << popBoth
+
+
 pushOrPop : comparable -> a -> Stact comparable a -> ( Maybe a, Stact comparable a )
 pushOrPop k v st =
     case pop st of

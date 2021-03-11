@@ -7,6 +7,23 @@ import Gc.Parse
 port setInput : String -> Cmd msg
 
 
+port setSelection : ( Int, Int ) -> Cmd msg
+
+
+port input : (( Maybe Int, String ) -> msg) -> Sub msg
+
+
+port selection : (Maybe ( Int, Int ) -> msg) -> Sub msg
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    [ input Input
+    , selection Selection
+    ]
+        |> Sub.batch
+
+
 type alias Model =
     { nav : Nav.Key
     , input :
@@ -18,9 +35,15 @@ type alias Model =
     }
 
 
+type CycleDir
+    = Prev
+    | Next
+
+
 type Msg
     = Nop
     | Input ( Maybe Int, String )
+    | InputSkip CycleDir
     | Selection (Maybe ( Int, Int ))
     | SetInput String
     | HoverIn Int
@@ -48,6 +71,11 @@ update msg model =
                 | input = { cursor = i, content = content }
               }
             , Cmd.none
+            )
+
+        InputSkip dir ->
+            ( model
+            , setSelection ( 0, 0 )
             )
 
         SetInput s ->

@@ -3,6 +3,7 @@ module Coknot.Route exposing (..)
 import Coknot.Layout as Layout
 import Coknot.Orient as Orient
 import Dict
+import Lens
 import Set
 import Stact
 
@@ -14,6 +15,31 @@ type alias State =
     , below : Stact.Stact Seg Layout.Endpoint
     , x : Int
     }
+
+
+type alias Property a b =
+    { get : a -> b
+    , set : b -> a -> a
+    }
+
+
+stateLens :
+    { above : Lens.Prop State (Stact.Stact Seg Layout.Endpoint)
+    , below : Lens.Prop State (Stact.Stact Seg Layout.Endpoint)
+    , x : Lens.Prop State Int
+    , layout : Lens.Prop State Layout.Layout
+    }
+stateLens =
+    { above = Lens.prop .above <| \a st -> { st | above = a }
+    , below = Lens.prop .below <| \a st -> { st | below = a }
+    , x = Lens.prop .x <| \a st -> { st | x = a }
+    , layout = Lens.prop .layout <| \a st -> { st | layout = a }
+    }
+
+
+incX : { a | x : Int } -> { a | x : Int }
+incX a =
+    { a | x = a.x + 1 }
 
 
 type alias Seg =
@@ -86,8 +112,12 @@ shift ( seg, fromSide, toSide ) state =
                     , to = to
                     , from = from
                     , layout =
-                        Layout.addArc seg
-                            { side = fromSide, start = start, end = { x = x, dir = Layout.W } }
+                        Layout.addArcs seg
+                            [ { side = fromSide
+                              , start = start
+                              , end = { x = x, dir = Layout.W }
+                              }
+                            ]
                             layout
                 }
             )
@@ -131,19 +161,12 @@ west seg state =
 
     else if state.first.w == seg then
         -- TODO handle first better
-        { state
-            | above =
-                Stact.push seg
-                    { x = state.x, dir = Layout.W }
-                    state.above
-            , below =
-                Stact.push
-                    seg
-                    { x = state.x, dir = Layout.W }
-                    state.below
-            , layout = state.layout
-            , x = state.x + 1
-        }
+        state
+            |> stateLens.above.edit
+                (Stact.push seg { x = state.x, dir = Layout.W })
+            |> stateLens.below.edit
+                (Stact.push seg { x = state.x, dir = Layout.W })
+            |> incX
             |> Just
 
     else
@@ -162,11 +185,6 @@ north seg state =
         |> (\{ stact, layout } ->
                 { state | above = stact, layout = layout }
            )
-
-
-incX : State -> State
-incX state =
-    { state | x = state.x + 1 }
 
 
 south : Int -> State -> State
@@ -200,7 +218,14 @@ vert { seg, stact, side, x, layout } =
                 { stact = newStact
                 , layout =
                     (Maybe.map
-                        (\start -> Layout.addArc seg { side = side, start = start, end = { x = x, dir = Layout.V } })
+                        (\start ->
+                            Layout.addArcs seg
+                                [ { side = side
+                                  , start = start
+                                  , end = { x = x, dir = Layout.V }
+                                  }
+                                ]
+                        )
                         popped
                         |> Maybe.withDefault identity
                     )
@@ -220,17 +245,16 @@ east seg state =
         |> Maybe.andThen
             (\( ( s, start ), above ) ->
                 if s == seg then
-                    { state
-                        | layout =
-                            Layout.addArc seg
+                    state
+                        |> stateLens.layout.edit
+                            (Layout.addArc seg
                                 { side = Layout.N
                                 , start = start
                                 , end = { x = state.x, dir = Layout.E }
                                 }
-                                state.layout
-                        , x = state.x + 1
-                        , above = above
-                    }
+                            )
+                        |> stateLens.above.set above
+                        |> incX
                         |> Just
 
                 else
@@ -241,17 +265,16 @@ east seg state =
                 |> Maybe.andThen
                     (\( ( s, start ), below ) ->
                         if s == seg then
-                            { state
-                                | layout =
-                                    Layout.addArc seg
+                            state
+                                |> stateLens.layout.edit
+                                    (Layout.addArc seg
                                         { side = Layout.S
                                         , start = start
                                         , end = { x = state.x, dir = Layout.E }
                                         }
-                                        state.layout
-                                , x = state.x + 1
-                                , below = below
-                            }
+                                    )
+                                |> stateLens.below.set below
+                                |> incX
                                 |> Just
 
                         else
@@ -271,20 +294,7 @@ east seg state =
 
 crossing : Orient.Terminal -> State -> State
 crossing term st =
-    let
-        { layout } =
-            st
-    in
-    { st
-        | layout =
-            { layout
-                | crossings =
-                    Dict.insert
-                        st.x
-                        term
-                        layout.crossings
-            }
-    }
+    stateLens.layout.edit (Layout.addCrossing st.x term) st
 
 
 next : Orient.Terminal -> Maybe State -> Maybe State
@@ -298,34 +308,28 @@ next terminal =
 
 end : State -> State
 end state =
-    case ( Stact.pop state.above, Stact.pop state.below ) of
-        ( Just ( ( s1, x1 ), above ), Just ( ( s2, x2 ), below ) ) ->
-            if s1 == s2 then
-                { state
-                    | layout =
-                        Layout.addArcs
-                            s1
-                            [ { side = Layout.N
-                              , start = x1
-                              , end = { x = state.x, dir = Layout.V }
-                              }
-                            , { side = Layout.S
-                              , start = x2
-                              , end = { x = state.x, dir = Layout.V }
-                              }
-                            ]
-                            state.layout
-                    , above = above
-                    , below = below
-                    , x = state.x + 1
-                }
-                    |> end
-
-            else
+    let
+        arc side start =
+            { side = side
+            , start = start
+            , end = { x = state.x, dir = Layout.V }
+            }
+    in
+    Stact.popBothEqual ( state.above, state.below )
+        |> Maybe.map
+            (\( ( seg, ( aboveStart, belowStart ) ), ( above, below ) ) ->
                 state
-
-        _ ->
-            state
+                    |> stateLens.layout.edit
+                        (Layout.addArcs seg
+                            [ arc Layout.N aboveStart
+                            , arc Layout.S belowStart
+                            ]
+                        )
+                    |> stateLens.above.set above
+                    |> stateLens.below.set below
+                    |> incX
+            )
+        |> Maybe.withDefault state
 
 
 build : List Orient.Terminal -> Maybe Success

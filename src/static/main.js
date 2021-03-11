@@ -10,12 +10,15 @@ const sanitizeGauss = (s) => s.toLowerCase().replace(/[^\d uo+-]/, "");
 
 const setGauss = (s) => {
   gaussInput.value = s;
-  app.ports.input.send([
-    gaussInput.hasFocus ? gaussInput.selectionStart : null,
-    gaussInput.value,
-  ]);
+  app.ports.input.send([null, gaussInput.value]);
 };
 app.ports.setInput.subscribe(setGauss);
+
+const setSelection = ([i, j]) => {
+  gaussInput.selectionStart = i;
+  gaussInput.selectionEnd = j;
+};
+app.ports.setSelection.subscribe(setSelection);
 
 gaussInput.addEventListener("input", ({ target }) => {
   const i = target.selectionStart;
