@@ -3,6 +3,7 @@ module Main exposing (..)
 import Browser
 import Browser.Navigation as Nav
 import Coknot.Orient
+import Coknot.Postprocess
 import Coknot.Route
 import Css
 import ElmEscapeHtml as Esc
@@ -108,6 +109,10 @@ viewBody model =
         layout =
             terms
                 |> Maybe.andThen Coknot.Route.build
+
+        diagram =
+            layout
+                |> Maybe.map (\a -> Coknot.Postprocess.process { skipTrivial = True } a.layout)
     in
     [ Ht.main_ [ At.css [ Style.root ] ]
         [ Ht.div [ At.css [ Style.content ] ]

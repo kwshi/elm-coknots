@@ -2,6 +2,7 @@ module Render exposing (..)
 
 import Coknot.Layout as Layout
 import Coknot.Orient as Orient
+import Coknot.Postprocess as Post
 import Coknot.Route as Route
 import Css
 import Dict
@@ -25,6 +26,21 @@ padSize =
     0.5
 
 
+roundSize : Float
+roundSize =
+    1 / 8
+
+
+sideSign : Layout.Side -> number
+sideSign side =
+    case side of
+        Layout.N ->
+            -1
+
+        Layout.S ->
+            1
+
+
 semicirc :
     Layout.Side
     -> ( Float, List Path.Segment )
@@ -35,6 +51,14 @@ semicirc side ( x1, p1 ) ( x2, p2 ) =
         r =
             (x2 - x1) / 2
 
+        roundOffset =
+            case side of
+                Layout.N ->
+                    -roundSize
+
+                Layout.S ->
+                    roundSize
+
         offset =
             case side of
                 Layout.N ->
@@ -44,7 +68,7 @@ semicirc side ( x1, p1 ) ( x2, p2 ) =
                     padSize
     in
     p1
-        ++ [ Path.M ( x1, 0 )
+        ++ [ Path.M ( x1, roundOffset )
            , Path.L ( x1, offset )
            , Path.A ( r, r )
                 0
@@ -57,31 +81,56 @@ semicirc side ( x1, p1 ) ( x2, p2 ) =
                         False
                 )
                 ( x2, offset )
-           , Path.L ( x2, 0 )
+           , Path.L ( x2, roundOffset )
            ]
         ++ p2
 
 
-perturb : Layout.Endpoint -> ( Float, List Path.Segment )
-perturb { dir, x } =
+round : Layout.Side -> Layout.Dir -> Int -> Path.Segment
+round side dir x =
+    let
+        dy =
+            sideSign side * roundSize
+
+        sweep =
+            (dir == Layout.E && side == Layout.S)
+                || (dir == Layout.W && side == Layout.N)
+    in
+    Path.A ( roundSize, roundSize )
+        90
+        False
+        sweep
+        ( toFloat x, dy )
+
+
+perturb : Layout.Side -> Layout.Endpoint -> ( Float, List Path.Segment )
+perturb side { dir, x } =
+    let
+        rd =
+            round side dir x
+    in
     case dir of
         Layout.W ->
             ( toFloat x
-            , [ Path.M ( toFloat x, 0 )
-              , Path.L ( toFloat x + 1, 0 )
+            , [ Path.M ( toFloat x + 1 - padSize, 0 )
+              , Path.L ( toFloat x + roundSize, 0 )
+              , rd
               ]
             )
 
         Layout.E ->
             ( toFloat x
-            , [ Path.M ( toFloat x, 0 )
-              , Path.L ( toFloat x - 1, 0 )
+            , [ Path.M ( toFloat x - 1, 0 )
+              , Path.L ( toFloat x - roundSize, 0 )
+              , rd
               ]
             )
 
         Layout.V ->
             ( toFloat x
-            , []
+            , [ Path.M ( toFloat x, 0 )
+              , Path.L ( toFloat x, sideSign side * roundSize )
+              ]
             )
 
 
@@ -103,7 +152,7 @@ arcPath flat side start end =
         ]
 
     else
-        semicirc side (perturb start) (perturb end)
+        semicirc side (perturb side start) (perturb side end)
 
 
 render : Bool -> Route.Success -> Html.Html msg
@@ -114,6 +163,10 @@ render flat { layout, width } =
 
         height =
             toFloat layout.largest + 3 * padSize
+
+        posted =
+            Post.process { skipTrivial = True } layout
+                |> Debug.log "posted"
     in
     Svg.svg
         [ At.width "100%"
@@ -127,9 +180,8 @@ render flat { layout, width } =
                 ++ String.fromFloat height
         ]
         [ Svg.g []
-            (layout.strokes
-                |> Dict.values
-                |> List.concat
+            (posted.arcs
+                |> List.concatMap .stroke
                 |> List.map
                     (\{ side, start, end } ->
                         Svg.path
@@ -139,9 +191,10 @@ render flat { layout, width } =
                             []
                     )
             )
-        , Svg.g []
-            (layout.crossings
-                |> Dict.toList
+        , Svg.g
+            []
+            (posted.crossings
+                |> List.map (\{ x, terminal } -> ( x, terminal ))
                 |> List.concatMap
                     (\( x, t ) ->
                         [ Svg.circle
