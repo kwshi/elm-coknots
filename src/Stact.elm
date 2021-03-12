@@ -130,6 +130,28 @@ popUntil target f =
     go
 
 
+transfer :
+    comparable
+    -> (comparable -> a -> acc -> acc)
+    -> acc
+    -> { from : Stact comparable a, to : Stact comparable a }
+    -> Maybe ( a, acc, { from : Stact comparable a, to : Stact comparable a } )
+transfer key f =
+    let
+        go acc { from, to } =
+            Maybe.andThen
+                (\( ( k, a ), fromPopped ) ->
+                    if k == key then
+                        Just ( a, acc, { from = fromPopped, to = to } )
+
+                    else
+                        go (f k a acc) { from = fromPopped, to = push k a to }
+                )
+                (pop from)
+    in
+    go
+
+
 shiftPop :
     comparable
     -> { from : Stact comparable a, to : Stact comparable a }

@@ -2,9 +2,7 @@ module Coknot.Route exposing (..)
 
 import Coknot.Layout as Layout
 import Coknot.Orient as Orient
-import Dict
 import Lens
-import Set
 import Stact
 
 
@@ -14,12 +12,6 @@ type alias State =
     , above : Stact.Stact Seg Layout.Endpoint
     , below : Stact.Stact Seg Layout.Endpoint
     , x : Int
-    }
-
-
-type alias Property a b =
-    { get : a -> b
-    , set : b -> a -> a
     }
 
 
@@ -62,176 +54,147 @@ init first =
     }
 
 
-type alias ShiftState =
-    { x : Int
-    , from : Stact.Stact Seg Layout.Endpoint
-    , to : Stact.Stact Seg Layout.Endpoint
-    , layout : Layout.Layout
-    }
+addArcs : Int -> List Layout.Arc -> State -> State
+addArcs seg =
+    stateLens.layout.edit << Layout.addArcs seg
 
 
-shift : ( Int, Layout.Side, Layout.Side ) -> ShiftState -> Maybe ShiftState
-shift ( seg, fromSide, toSide ) state =
-    Stact.popUntil seg
-        (\s start { x, layout, to } ->
-            to
-                |> Stact.pushOrPop s { x = x, dir = Layout.V }
-                |> (\( popped, newTo ) ->
-                        { x = x + 1
-                        , to = newTo
-                        , layout =
-                            Layout.addArc s
-                                { side = fromSide
-                                , start = start
-                                , end = { x = x, dir = Layout.V }
-                                }
-                                layout
-                                |> (case popped of
-                                        Nothing ->
-                                            identity
+addArc : Int -> Layout.Arc -> State -> State
+addArc seg =
+    stateLens.layout.edit << Layout.addArc seg
 
-                                        Just otherStart ->
-                                            Layout.addArc s
-                                                { side = toSide
-                                                , start = otherStart
-                                                , end = { x = x, dir = Layout.V }
-                                                }
-                                   )
+
+emit :
+    Lens.Prop State (Stact.Stact Int Layout.Endpoint)
+    -> { seg : Int, side : Layout.Side, end : Layout.Endpoint }
+    -> State
+    -> State
+emit stact { seg, side, end } state =
+    let
+        maybeAddArc =
+            Maybe.map
+                (\start ->
+                    addArc seg
+                        { start = start
+                        , end = end
+                        , side = side
                         }
+                )
+                >> Maybe.withDefault identity
+    in
+    stact.get state
+        |> Stact.pushOrPop seg end
+        |> (\( popped, poppedStact ) ->
+                state
+                    |> stact.set poppedStact
+                    |> maybeAddArc popped
+           )
+
+
+shift :
+    { seg : Int
+    , dir : Layout.Dir
+    , fromStact : Lens.Prop State (Stact.Stact Int Layout.Endpoint)
+    , toStact : Lens.Prop State (Stact.Stact Int Layout.Endpoint)
+    , fromSide : Layout.Side
+    , toSide : Layout.Side
+    }
+    -> State
+    -> Maybe State
+shift { seg, dir, fromStact, toStact, fromSide, toSide } =
+    let
+        go state =
+            Stact.pop (fromStact.get state)
+                |> Maybe.andThen (handle state)
+
+        handle state ( ( fromSeg, fromStart ), fromPopped ) =
+            let
+                addArcFacing d =
+                    addArc seg
+                        { side = fromSide
+                        , start = fromStart
+                        , end = { x = state.x, dir = d }
+                        }
+            in
+            state
+                |> fromStact.set fromPopped
+                |> incX
+                |> (if fromSeg == seg then
+                        addArcFacing dir >> Just
+
+                    else
+                        addArcFacing Layout.V
+                            >> emit toStact
+                                { seg = fromSeg
+                                , side = toSide
+                                , end = { x = state.x, dir = Layout.V }
+                                }
+                            >> go
                    )
-        )
-        { x = state.x
-        , to = state.to
-        , layout = state.layout
-        }
-        state.from
-        |> Maybe.map
-            (\( start, { to, layout, x }, from ) ->
-                { state
-                    | x = x
-                    , to = to
-                    , from = from
-                    , layout =
-                        Layout.addArcs seg
-                            [ { side = fromSide
-                              , start = start
-                              , end = { x = x, dir = Layout.W }
-                              }
-                            ]
-                            layout
-                }
-            )
+    in
+    go
 
 
-west : Int -> State -> Maybe State
-west seg state =
-    if Stact.member seg state.above then
-        { x = state.x
-        , from = state.above
-        , to = state.below
-        , layout = state.layout
-        }
-            |> shift ( seg, Layout.N, Layout.S )
-            |> Maybe.map
-                (\{ x, from, to, layout } ->
-                    { state
-                        | x = x + 1
-                        , above = from
-                        , below = to
-                        , layout = layout
-                    }
-                )
+handleWest : Int -> State -> Maybe State
+handleWest seg state =
+    (if Stact.member seg state.above then
+        shift
+            { seg = seg
+            , dir = Layout.W
+            , fromStact = stateLens.above
+            , toStact = stateLens.below
+            , fromSide = Layout.N
+            , toSide = Layout.S
+            }
 
-    else if Stact.member seg state.below then
-        { x = state.x
-        , from = state.below
-        , to = state.above
-        , layout = state.layout
-        }
-            |> shift ( seg, Layout.S, Layout.N )
-            |> Maybe.map
-                (\{ x, from, to, layout } ->
-                    { state
-                        | x = x + 1
-                        , below = from
-                        , above = to
-                        , layout = layout
-                    }
-                )
+     else if Stact.member seg state.below then
+        shift
+            { seg = seg
+            , dir = Layout.W
+            , fromStact = stateLens.below
+            , toStact = stateLens.above
+            , fromSide = Layout.S
+            , toSide = Layout.N
+            }
 
-    else if state.first.w == seg then
+     else if state.first.w == seg then
         -- TODO handle first better
+        stateLens.above.edit
+            (Stact.push seg { x = state.x, dir = Layout.W })
+            >> stateLens.below.edit
+                (Stact.push seg { x = state.x, dir = Layout.W })
+            >> incX
+            >> Just
+
+     else
+        Just
+    )
         state
-            |> stateLens.above.edit
-                (Stact.push seg { x = state.x, dir = Layout.W })
-            |> stateLens.below.edit
-                (Stact.push seg { x = state.x, dir = Layout.W })
-            |> incX
-            |> Just
-
-    else
-        Just state
-
-
-north : Int -> State -> State
-north seg state =
-    { seg = seg
-    , stact = state.above
-    , side = Layout.N
-    , layout = state.layout
-    , x = state.x
-    }
-        |> vert
-        |> (\{ stact, layout } ->
-                { state | above = stact, layout = layout }
-           )
-
-
-south : Int -> State -> State
-south seg state =
-    { seg = seg
-    , stact = state.below
-    , side = Layout.S
-    , x = state.x
-    , layout = state.layout
-    }
-        |> vert
-        |> (\{ stact, layout } ->
-                { state | below = stact, layout = layout }
-           )
 
 
 vert :
-    { seg : Int
-    , stact : Stact.Stact Seg Layout.Endpoint
-    , side : Layout.Side
-    , x : Int
-    , layout : Layout.Layout
-    }
-    ->
-        { stact : Stact.Stact Seg Layout.Endpoint
-        , layout : Layout.Layout
+    Lens.Prop State (Stact.Stact Int Layout.Endpoint)
+    -> Layout.Side
+    -> Int
+    -> State
+    -> State
+vert stact side seg state =
+    emit stact
+        { seg = seg
+        , side = side
+        , end = { x = state.x, dir = Layout.V }
         }
-vert { seg, stact, side, x, layout } =
-    Stact.pushOrPop seg { x = x, dir = Layout.V } stact
-        |> (\( popped, newStact ) ->
-                { stact = newStact
-                , layout =
-                    (Maybe.map
-                        (\start ->
-                            Layout.addArcs seg
-                                [ { side = side
-                                  , start = start
-                                  , end = { x = x, dir = Layout.V }
-                                  }
-                                ]
-                        )
-                        popped
-                        |> Maybe.withDefault identity
-                    )
-                        layout
-                }
-           )
+        state
+
+
+handleNorth : Int -> State -> State
+handleNorth =
+    vert stateLens.above Layout.N
+
+
+handleSouth : Int -> State -> State
+handleSouth =
+    vert stateLens.below Layout.S
 
 
 update : (List a -> List a) -> Maybe (List a) -> Maybe (List a)
@@ -299,15 +262,18 @@ crossing term st =
 
 next : Orient.Terminal -> Maybe State -> Maybe State
 next terminal =
-    Maybe.andThen (west terminal.w)
-        >> Maybe.map (crossing terminal)
-        >> Maybe.map (north terminal.n >> south terminal.s)
-        >> Maybe.map incX
+    Maybe.andThen (handleWest terminal.w)
+        >> Maybe.map
+            (crossing terminal
+                >> handleNorth terminal.n
+                >> handleSouth terminal.s
+                >> incX
+            )
         >> Maybe.andThen (east terminal.e)
 
 
-end : State -> State
-end state =
+finalize : State -> State
+finalize state =
     let
         arc side start =
             { side = side
@@ -315,21 +281,21 @@ end state =
             , end = { x = state.x, dir = Layout.V }
             }
     in
-    Stact.popBothEqual ( state.above, state.below )
+    (Stact.popBothEqual ( state.above, state.below )
         |> Maybe.map
             (\( ( seg, ( aboveStart, belowStart ) ), ( above, below ) ) ->
-                state
-                    |> stateLens.layout.edit
-                        (Layout.addArcs seg
-                            [ arc Layout.N aboveStart
-                            , arc Layout.S belowStart
-                            ]
-                        )
-                    |> stateLens.above.set above
-                    |> stateLens.below.set below
-                    |> incX
+                addArcs seg
+                    [ arc Layout.N aboveStart
+                    , arc Layout.S belowStart
+                    ]
+                    >> stateLens.above.set above
+                    >> stateLens.below.set below
+                    >> incX
+                    >> finalize
             )
-        |> Maybe.withDefault state
+        |> Maybe.withDefault identity
+    )
+        state
 
 
 build : List Orient.Terminal -> Maybe Success
@@ -346,7 +312,7 @@ build terminals =
         first :: _ ->
             -- TODO handle first better
             List.foldl next (Just <| init first) terminals
-                |> Maybe.map (end >> Debug.log "after end")
+                |> Maybe.map (finalize >> Debug.log "after end")
                 |> Maybe.map
                     (\st ->
                         { layout = Layout.finalize st.layout
